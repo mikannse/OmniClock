@@ -1,18 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, RotateCcw, Plus, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PRESETS = [
-  { label: '1分钟', value: 60 },
-  { label: '5分钟', value: 300 },
-  { label: '10分钟', value: 600 },
-  { label: '15分钟', value: 900 },
-  { label: '30分钟', value: 1800 },
-  { label: '1小时', value: 3600 },
+  { label: '1 min', value: 60 },
+  { label: '5 min', value: 300 },
+  { label: '10 min', value: 600 },
+  { label: '15 min', value: 900 },
+  { label: '30 min', value: 1800 },
+  { label: '1 hour', value: 3600 },
 ];
 
 export function CountdownView() {
+  const { t } = useTranslation();
   const [totalSeconds, setTotalSeconds] = useState(300);
   const [timeLeft, setTimeLeft] = useState(300);
   const [isRunning, setIsRunning] = useState(false);
@@ -75,6 +77,13 @@ export function CountdownView() {
   const progress = totalSeconds > 0 ? ((totalSeconds - timeLeft) / totalSeconds) * 100 : 0;
   const isComplete = timeLeft === 0 && !isEditing;
 
+  const getStatusText = () => {
+    if (isRunning) return 'Running';
+    if (isComplete) return 'Complete';
+    if (!isEditing) return 'Paused';
+    return 'Ready';
+  };
+
   return (
     <div className="flex flex-col items-center gap-8">
       {/* Circular Progress */}
@@ -116,7 +125,7 @@ export function CountdownView() {
           </div>
           {!isEditing && (
             <div className="text-xs text-muted-foreground mt-2 uppercase tracking-widest">
-              {isRunning ? '运行中' : isComplete ? '完成' : '已暂停'}
+              {getStatusText()}
             </div>
           )}
         </div>
@@ -129,7 +138,7 @@ export function CountdownView() {
             <Button variant="ghost" size="sm" onClick={() => adjustTime(1, 'hours')} className="h-8 w-8 rounded-full">
               <Plus className="h-4 w-4" />
             </Button>
-            <span className="text-xs text-muted-foreground">时</span>
+            <span className="text-xs text-muted-foreground">{t('countdown.hours')}</span>
             <Button variant="ghost" size="sm" onClick={() => adjustTime(-1, 'hours')} className="h-8 w-8 rounded-full">
               <Minus className="h-4 w-4" />
             </Button>
@@ -138,7 +147,7 @@ export function CountdownView() {
             <Button variant="ghost" size="sm" onClick={() => adjustTime(1, 'minutes')} className="h-8 w-8 rounded-full">
               <Plus className="h-4 w-4" />
             </Button>
-            <span className="text-xs text-muted-foreground">分</span>
+            <span className="text-xs text-muted-foreground">{t('countdown.minutes')}</span>
             <Button variant="ghost" size="sm" onClick={() => adjustTime(-1, 'minutes')} className="h-8 w-8 rounded-full">
               <Minus className="h-4 w-4" />
             </Button>
@@ -176,7 +185,7 @@ export function CountdownView() {
           disabled={timeLeft === totalSeconds && isEditing}
         >
           <RotateCcw className="h-5 w-5" />
-          <span className="sr-only">重置</span>
+          <span className="sr-only">{t('countdown.reset')}</span>
         </Button>
 
         <Button
@@ -193,7 +202,7 @@ export function CountdownView() {
           ) : (
             <Play className="h-8 w-8 ml-1" />
           )}
-          <span className="sr-only">{isRunning ? '暂停' : '开始'}</span>
+          <span className="sr-only">{isRunning ? t('countdown.pause') : t('countdown.start')}</span>
         </Button>
 
         <div className="h-14 w-14" />

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**AllClock** is a multi-module clock application built with Tauri 2.x + React + TypeScript. It provides timer (segmented), stopwatch, countdown, and settings modules with a clean, minimal UI using neutral gray tones and shadcn/ui-style components.
+**Omni Clock** is a multi-module clock application built with Tauri 2.x + React + TypeScript. It provides timer (segmented), stopwatch, countdown, and settings modules with a clean, minimal UI using neutral gray tones and shadcn/ui-style components.
 
 ## Development Commands
 
@@ -29,7 +29,7 @@ npm run build
 - **Frontend**: React 19, TypeScript, TailwindCSS 4.x (via @tailwindcss/postcss)
 - **Backend**: Tauri 2.x (Rust)
 - **State**: React Context + useReducer
-- **Persistence**: Tauri fs plugin → JSON files in AppData/AllClock
+- **Persistence**: Tauri fs plugin → JSON files in AppData/OmniClock
 - **Notifications**: Tauri notification plugin
 - **Audio**: Web Audio API
 - **UI Components**: Custom shadcn/ui-style components (Button, Switch, Slider, Label, Separator)
@@ -37,8 +37,10 @@ npm run build
 
 ### State Management
 - `TimerContext` (`src/contexts/TimerContext.tsx`) - Global state for timer configs, settings, and active timer state
-- Uses `useReducer` with actions: SET_CONFIGS, SET_SETTINGS, START_TIMER, TICK, NEXT_SEGMENT, PAUSE, RESUME, RESET, TIMER_END, SET_WARNING
-- Local component state for view-specific UI state
+- `PomodoroContext` (`src/contexts/PomodoroContext.tsx`) - Pomodoro timer state with work/break cycle management
+- `ThemeContext` (`src/contexts/ThemeContext.tsx`) - Theme resolution (light/dark/system)
+- All use `useReducer` with explicit action types for predictable state updates
+- Refs used for interval tracking and callback stability in timers
 
 ### Layout Structure
 - Sidebar navigation (left, ~224px) with logo, nav items, version footer
@@ -48,35 +50,54 @@ npm run build
 ### Module Structure
 Each feature module is in `src/components/{Module}/`:
 - `Timer/` - Custom timed exam configurations with segment support (TimerView, TimerDisplay, TimerControls, TimerConfigForm)
+- `Pomodoro/` - Pomodoro technique timer with work/short break/long break cycles (PomodoroView)
 - `Stopwatch/` - Standard stopwatch with lap recording (StopwatchView)
 - `Countdown/` - Simple countdown with circular progress ring (CountdownView)
-- `Settings/` - Notification and sound toggles (SettingsView)
+- `Settings/` - Notification, sound, and theme toggles (SettingsView)
 
 ### Data Models (src/types/index.ts)
 ```typescript
 TimerConfig { id, name, totalMinutes, segments[], createdAt }
 TimerSegment { id, name, minutes }
-Settings { notificationsEnabled, soundEnabled }
+Settings { notificationsEnabled, soundEnabled, theme: 'light' | 'dark' | 'system' }
+PomodoroSettings { workMinutes, shortBreakMinutes, longBreakMinutes, longBreakInterval }
 TimerState { status, currentSegmentIndex, remainingSeconds, totalElapsedSeconds }
+PomodoroState { status: 'idle'|'working'|'shortBreak'|'longBreak', completedPomodoros, remainingSeconds, totalElapsedSeconds }
 TimerStatus = 'idle' | 'running' | 'paused'
 StopwatchLap { id, time, lapTime }
-ModuleType = 'timer' | 'stopwatch' | 'countdown' | 'settings'
+ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings'
 ```
 
 ### Persistence (src/utils/storage.ts)
 - Uses Tauri fs plugin with AppData directory
 - `configs.json` - Array of TimerConfig
-- `settings.json` - Settings object
-- Auto-creates `AllClock/` directory on first load
+- `settings.json` - Settings object (includes theme preference)
+- `pomodoro.json` - PomodoroSettings object
+- Auto-creates `OmniClock/` directory on first load
+
+### Internationalization (src/i18n/)
+- 6 languages: English, Chinese (Simplified/Traditional), Japanese, French, German
+- Language stored in localStorage under 'language' key
+- `changeLanguage(code)` function exported for language switching
+- Translation keys: app, nav, timer, pomodoro, stopwatch, countdown, settings, common
 
 ### Tauri Plugins Used
 - `tauri-plugin-fs` - File system access for JSON persistence
 - `tauri-plugin-notification` - Desktop notifications
 - `tauri-plugin-opener` - Default opener (included in template)
 
+### System Tray (src-tauri/src/lib.rs)
+- Tray icon with context menu (Show/Hide/Start Work/Quit)
+- Left-click shows and focuses window
+- Right-click opens menu
+- Emits `tray-start-work` event to frontend for starting Pomodoro
+- Tauri feature `tray-icon` enabled in Cargo.toml
+
 ### Tauri Capabilities (src-tauri/capabilities/default.json)
+- `core:default`, `core:event:default`
+- `core:window:default`, `core:window:allow-show`, `core:window:allow-hide`, `core:window:allow-set-focus`
 - `fs:default`, `fs:allow-appdata-read-recursive`, `fs:allow-appdata-write-recursive`
-- `notification:default`, `opener:default`, `core:default`
+- `notification:default`, `opener:default`
 
 ### UI Styling
 
@@ -107,4 +128,14 @@ ModuleType = 'timer' | 'stopwatch' | 'countdown' | 'settings'
 ### Window Configuration
 - Default size: 900x700px
 - Minimum size: 700x500px
-- App identifier: com.allclock.clock
+- App identifier: com.allclock.clock (keep for compatibility)
+- DevTools open automatically in debug builds
+
+### Provider Hierarchy
+```
+TimerProvider
+  └── PomodoroProvider
+        └── ThemeProvider
+              └── TrayEventHandler
+                    └── AppContent
+```

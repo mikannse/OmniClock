@@ -1,0 +1,102 @@
+{
+  "app": {
+    "name": "Omni Clock",
+    "version": "Version"
+  },
+  "nav": {
+    "timer": "Timer",
+    "pomodoro": "Pomodoro",
+    "stopwatch": "Stopwatch",
+    "countdown": "Countdown",
+    "settings": "Settings"
+  },
+  "timer": {
+    "title": "Timer",
+    "start": "Start",
+    "pause": "Pause",
+    "resume": "Resume",
+    "reset": "Reset",
+    "next": "Next",
+    "configName": "Config Name",
+    "totalTime": "Total Time",
+    "segments": "Segments",
+    "addSegment": "Add Segment",
+    "segmentName": "Segment Name",
+    "minutes": "minutes",
+    "createConfig": "Create Config",
+    "deleteConfig": "Delete",
+    "noConfigs": "No configs"
+  },
+  "pomodoro": {
+    "title": "Pomodoro",
+    "completed": "Completed {{count}} pomodoros",
+    "startWork": "Start Focus",
+    "working": "Focusing",
+    "shortBreak": "Short Break",
+    "longBreak": "Long Break",
+    "breakFinished": "Break Finished!",
+    "workFinished": "Pomodoro Complete!",
+    "startNext": "Start Next Pomodoro!",
+    "takeBreak": "Take a break, get ready for the next!",
+    "takeLongBreak": "Time for a long break!",
+    "newRound": "Start a new Pomodoro!",
+    "settings": "Settings",
+    "workDuration": "Work Duration",
+    "shortBreakDuration": "Short Break Duration",
+    "longBreakDuration": "Long Break Duration",
+    "longBreakInterval": "Long Break Interval",
+    "pomodorosBeforeLong": "Every {{count}} pomodoros",
+    "save": "Save Settings",
+    "cancel": "Cancel",
+    "skip": "Skip",
+    "reset": "Reset",
+    "tips": {
+      "title": "Pomodoro Technique",
+      "work": "Focus for {{minutes}} minutes",
+      "shortBreak": "Short break {{minutes}} minutes",
+      "longBreak": "Long break {{minutes}} minutes after {{count}} pomodoros",
+      "autoSwitch": "Automatically switches to the next state"
+    }
+  },
+  "stopwatch": {
+    "title": "Stopwatch",
+    "lap": "Lap",
+    "reset": "Reset",
+    "total": "Total",
+    "lapNumber": "Lap {{count}}",
+    "noLaps": "No lap records"
+  },
+  "countdown": {
+    "title": "Countdown",
+    "start": "Start",
+    "pause": "Pause",
+    "resume": "Resume",
+    "reset": "Reset",
+    "setTime": "Set Time",
+    "hours": "Hours",
+    "minutes": "Minutes",
+    "seconds": "Seconds"
+  },
+  "settings": {
+    "title": "Settings",
+    "notifications": "Notifications",
+    "notificationsEnabled": "Enable Notifications",
+    "sound": "Sound",
+    "soundEnabled": "Enable Sound",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "language": "Language",
+    "selectLanguage": "Select Language",
+    "about": "About",
+    "version": "Version"
+  },
+  "common": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "save": "Save"
+  }
+}

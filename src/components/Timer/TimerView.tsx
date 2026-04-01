@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTimerContext } from '../../contexts/TimerContext';
 import { TimerConfigForm } from './TimerConfigForm';
 import { TimerDisplay } from './TimerDisplay';
@@ -10,6 +11,7 @@ import { Plus } from 'lucide-react';
 type ViewMode = 'list' | 'create' | 'edit';
 
 export function TimerView() {
+  const { t } = useTranslation();
   const { configs, timerState, startTimer, deleteConfig } = useTimerContext();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [editingConfig, setEditingConfig] = useState<typeof configs[0] | null>(null);
@@ -20,7 +22,7 @@ export function TimerView() {
     setViewMode('edit');
   };
   const handleDeleteConfig = async (configId: string) => {
-    if (confirm('确定要删除这个配置吗？')) {
+    if (confirm(t('common.confirm') + '?')) {
       await deleteConfig(configId);
     }
   };
@@ -43,7 +45,9 @@ export function TimerView() {
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <div className="h-6 w-px bg-border" />
-          <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground">创建计时配置</span>
+          <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
+            {t('timer.createConfig')}
+          </span>
         </div>
         <TimerConfigForm onSave={handleSaveForm} onCancel={() => setViewMode('list')} />
       </div>
@@ -55,7 +59,9 @@ export function TimerView() {
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <div className="h-6 w-px bg-border" />
-          <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground">编辑计时配置</span>
+          <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
+            {t('common.edit')} {t('timer.title')}
+          </span>
         </div>
         <TimerConfigForm
           editConfig={editingConfig}
@@ -71,23 +77,23 @@ export function TimerView() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">计时配置</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('timer.title')}</h1>
           <p className="text-sm text-muted-foreground">
-            {configs.length} 个配置 / 共 {configs.reduce((sum, c) => sum + c.segments.length, 0)} 个分段
+            {configs.length} {t('timer.configName')}(s) / {configs.reduce((sum, c) => sum + c.segments.length, 0)} {t('timer.segments')}
           </p>
         </div>
         <Button onClick={() => setViewMode('create')} size="sm">
           <Plus className="h-4 w-4 mr-2" />
-          新建配置
+          {t('timer.createConfig')}
         </Button>
       </div>
 
       {/* Config list */}
       {configs.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-muted-foreground mb-4">暂无计时配置</p>
+          <p className="text-muted-foreground mb-4">{t('timer.noConfigs')}</p>
           <Button onClick={() => setViewMode('create')} variant="outline">
-            创建第一个配置
+            {t('timer.createConfig')}
           </Button>
         </div>
       ) : (
@@ -107,7 +113,7 @@ export function TimerView() {
                     <div className="flex items-center gap-2 mb-2">
                       <h3 className="font-medium truncate">{config.name}</h3>
                       <span className="text-xs text-muted-foreground shrink-0">
-                        {config.segments.length} 分段
+                        {config.segments.length} {t('timer.segments')}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground">
@@ -126,13 +132,13 @@ export function TimerView() {
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <Button size="sm" onClick={() => handleStartConfig(config.id)}>
-                      启动
+                      {t('timer.start')}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => handleEditConfig(config)}>
-                      编辑
+                      {t('common.edit')}
                     </Button>
                     <Button size="sm" variant="destructive" onClick={() => handleDeleteConfig(config.id)}>
-                      删除
+                      {t('common.delete')}
                     </Button>
                   </div>
                 </div>

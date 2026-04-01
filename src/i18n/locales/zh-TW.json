@@ -1,0 +1,102 @@
+{
+  "app": {
+    "name": "Omni Clock",
+    "version": "版本"
+  },
+  "nav": {
+    "timer": "計時器",
+    "pomodoro": "番茄鐘",
+    "stopwatch": "碼錶",
+    "countdown": "倒數計時",
+    "settings": "設定"
+  },
+  "timer": {
+    "title": "計時器",
+    "start": "開始",
+    "pause": "暫停",
+    "resume": "繼續",
+    "reset": "重置",
+    "next": "下一段",
+    "configName": "配置名稱",
+    "totalTime": "總時長",
+    "segments": "分段",
+    "addSegment": "添加分段",
+    "segmentName": "分段名稱",
+    "minutes": "分鐘",
+    "createConfig": "創建配置",
+    "deleteConfig": "刪除",
+    "noConfigs": "暫無配置"
+  },
+  "pomodoro": {
+    "title": "番茄鐘",
+    "completed": "已完成 {{count}} 個番茄鐘",
+    "startWork": "開始專注",
+    "working": "專注工作中",
+    "shortBreak": "短休息",
+    "longBreak": "長休息",
+    "breakFinished": "休息結束！",
+    "workFinished": "番茄鐘完成！",
+    "startNext": "開始下一個番茄鐘！",
+    "takeBreak": "休息一下，準備下一個！",
+    "takeLongBreak": "開始長休息吧！",
+    "newRound": "開始新的番茄鐘！",
+    "settings": "設定",
+    "workDuration": "工作時長",
+    "shortBreakDuration": "短休息時長",
+    "longBreakDuration": "長休息時長",
+    "longBreakInterval": "長休息間隔",
+    "pomodorosBeforeLong": "每 {{count}} 個番茄鐘",
+    "save": "儲存設定",
+    "cancel": "取消",
+    "skip": "跳過",
+    "reset": "重置",
+    "tips": {
+      "title": "番茄工作法",
+      "work": "專注工作 {{minutes}} 分鐘",
+      "shortBreak": "短休息 {{minutes}} 分鐘",
+      "longBreak": "每 {{count}} 個番茄鐘後長休息 {{minutes}} 分鐘",
+      "autoSwitch": "時間到會自動切換到下一個狀態"
+    }
+  },
+  "stopwatch": {
+    "title": "碼錶",
+    "lap": "計次",
+    "reset": "重置",
+    "total": "總計",
+    "lapNumber": "第 {{count}} 次",
+    "noLaps": "暫無計次記錄"
+  },
+  "countdown": {
+    "title": "倒數計時",
+    "start": "開始",
+    "pause": "暫停",
+    "resume": "繼續",
+    "reset": "重置",
+    "setTime": "設定時間",
+    "hours": "時",
+    "minutes": "分",
+    "seconds": "秒"
+  },
+  "settings": {
+    "title": "設定",
+    "notifications": "通知",
+    "notificationsEnabled": "啟用通知",
+    "sound": "提示音",
+    "soundEnabled": "啟用提示音",
+    "theme": "主題",
+    "light": "淺色",
+    "dark": "深色",
+    "system": "跟隨系統",
+    "language": "語言",
+    "selectLanguage": "選擇語言",
+    "about": "關於",
+    "version": "版本"
+  },
+  "common": {
+    "confirm": "確認",
+    "cancel": "取消",
+    "delete": "刪除",
+    "edit": "編輯",
+    "save": "儲存"
+  }
+}

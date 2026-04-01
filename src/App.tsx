@@ -1,27 +1,58 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TimerProvider } from './contexts/TimerContext';
+import { PomodoroProvider } from './contexts/PomodoroContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { TimerView } from './components/Timer/TimerView';
+import { PomodoroView } from './components/Pomodoro/PomodoroView';
 import { StopwatchView } from './components/Stopwatch/StopwatchView';
 import { CountdownView } from './components/Countdown/CountdownView';
 import { SettingsView } from './components/Settings/SettingsView';
-import { Clock, Timer, Hourglass, Settings } from 'lucide-react';
+import { Clock, Timer, Hourglass, Settings, Coffee } from 'lucide-react';
+import { listen } from '@tauri-apps/api/event';
+import { usePomodoroContext } from './contexts/PomodoroContext';
+import { VERSION } from './utils/version';
 import './index.css';
 import type { ModuleType } from './types';
 
-const NAV_ITEMS: { id: ModuleType; label: string; icon: React.ReactNode }[] = [
-  { id: 'timer', label: '计时器', icon: <Clock className="h-5 w-5" /> },
-  { id: 'stopwatch', label: '秒表', icon: <Timer className="h-5 w-5" /> },
-  { id: 'countdown', label: '倒计时', icon: <Hourglass className="h-5 w-5" /> },
-  { id: 'settings', label: '设置', icon: <Settings className="h-5 w-5" /> },
+const NAV_ITEMS: { id: ModuleType; icon: React.ReactNode }[] = [
+  { id: 'timer', icon: <Clock className="h-5 w-5" /> },
+  { id: 'pomodoro', icon: <Coffee className="h-5 w-5" /> },
+  { id: 'stopwatch', icon: <Timer className="h-5 w-5" /> },
+  { id: 'countdown', icon: <Hourglass className="h-5 w-5" /> },
+  { id: 'settings', icon: <Settings className="h-5 w-5" /> },
 ];
 
+function TrayEventHandler() {
+  const { startWork } = usePomodoroContext();
+
+  useEffect(() => {
+    const unlisten = listen('tray-start-work', () => {
+      startWork();
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [startWork]);
+
+  return null;
+}
+
 function AppContent() {
+  const { t } = useTranslation();
   const [activeModule, setActiveModule] = useState<ModuleType>('timer');
+
+  const getLabel = (id: ModuleType) => {
+    return t(`nav.${id}`);
+  };
 
   const renderModule = () => {
     switch (activeModule) {
       case 'timer':
         return <TimerView />;
+      case 'pomodoro':
+        return <PomodoroView />;
       case 'stopwatch':
         return <StopwatchView />;
       case 'countdown':
@@ -42,7 +73,7 @@ function AppContent() {
           <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
             <Clock className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="font-semibold text-base tracking-tight">AllClock</span>
+          <span className="font-semibold text-base tracking-tight">{t('app.name')}</span>
         </div>
 
         {/* Navigation */}
@@ -58,14 +89,14 @@ function AppContent() {
               }`}
             >
               {item.icon}
-              {item.label}
+              {getLabel(item.id)}
             </button>
           ))}
         </nav>
 
         {/* Footer */}
         <div className="p-4 border-t border-border">
-          <p className="text-xs text-muted-foreground text-center">v0.1.0</p>
+          <p className="text-xs text-muted-foreground text-center">{t('app.version')} v{VERSION}</p>
         </div>
       </aside>
 
@@ -82,7 +113,12 @@ function AppContent() {
 function App() {
   return (
     <TimerProvider>
-      <AppContent />
+      <PomodoroProvider>
+        <ThemeProvider>
+          <TrayEventHandler />
+          <AppContent />
+        </ThemeProvider>
+      </PomodoroProvider>
     </TimerProvider>
   );
 }

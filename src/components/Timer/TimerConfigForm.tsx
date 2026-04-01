@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTimerContext } from '../../contexts/TimerContext';
 import type { TimerSegment } from '../../types';
 import { generateId } from '../../utils/time';
@@ -16,6 +17,7 @@ interface TimerConfigFormProps {
 }
 
 export function TimerConfigForm({ editConfig, onSave, onCancel }: TimerConfigFormProps) {
+  const { t } = useTranslation();
   const { addConfig, updateConfig } = useTimerContext();
   const [name, setName] = useState(editConfig?.name || '');
   const [segments, setSegments] = useState<TimerSegment[]>(
@@ -61,13 +63,13 @@ export function TimerConfigForm({ editConfig, onSave, onCancel }: TimerConfigFor
       {/* Config name */}
       <div>
         <label className="block text-sm font-medium mb-2">
-          配置名称
+          {t('timer.configName')}
         </label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="例如：高考数学模拟"
+          placeholder={t('timer.configName')}
           className="w-full px-4 py-3 rounded-lg border border-input bg-background text-sm"
           required
         />
@@ -77,11 +79,11 @@ export function TimerConfigForm({ editConfig, onSave, onCancel }: TimerConfigFor
       <div>
         <div className="flex items-center justify-between mb-3">
           <label className="block text-sm font-medium">
-            题型分段
+            {t('timer.segments')}
           </label>
           <Button type="button" variant="outline" size="sm" onClick={handleAddSegment}>
             <Plus className="h-4 w-4 mr-1" />
-            添加分段
+            {t('timer.addSegment')}
           </Button>
         </div>
 
@@ -98,7 +100,7 @@ export function TimerConfigForm({ editConfig, onSave, onCancel }: TimerConfigFor
                 type="text"
                 value={segment.name}
                 onChange={(e) => handleSegmentChange(segment.id, 'name', e.target.value)}
-                placeholder="题型名称"
+                placeholder={t('timer.segmentName')}
                 className="flex-1 px-3 py-2 rounded-md border border-input bg-background text-sm"
                 required
               />
@@ -106,7 +108,7 @@ export function TimerConfigForm({ editConfig, onSave, onCancel }: TimerConfigFor
                 type="number"
                 value={segment.minutes || ''}
                 onChange={(e) => handleSegmentChange(segment.id, 'minutes', e.target.value)}
-                placeholder="分钟"
+                placeholder={t('timer.minutes')}
                 min="1"
                 className="w-20 px-3 py-2 rounded-md border border-input bg-background text-sm text-center"
                 required
@@ -129,21 +131,21 @@ export function TimerConfigForm({ editConfig, onSave, onCancel }: TimerConfigFor
 
       {/* Total time display */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span>总时间：</span>
+        <span>{t('timer.totalTime')}:</span>
         <span className="font-mono">
-          {totalHours > 0 ? `${totalHours}小时 ` : ''}{remainingMinutes}分钟
+          {totalHours > 0 ? `${totalHours}h ` : ''}{remainingMinutes}m
         </span>
-        <span className="text-xs">({validSegments.length}个分段)</span>
+        <span className="text-xs">({validSegments.length} {t('timer.segments')})</span>
       </div>
 
       {/* Actions */}
       <div className="flex gap-3 pt-4">
         <Button type="submit" className="flex-1">
-          {editConfig ? '保存修改' : '创建配置'}
+          {editConfig ? t('common.save') : t('timer.createConfig')}
         </Button>
         {onCancel && (
           <Button type="button" variant="outline" onClick={onCancel}>
-            取消
+            {t('common.cancel')}
           </Button>
         )}
       </div>

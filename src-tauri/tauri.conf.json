@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "AllClock",
+  "productName": "Omni Clock",
   "version": "0.1.0",
   "identifier": "com.allclock.clock",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "AllClock - 万能时钟",
+        "title": "Omni Clock - 万能时钟",
         "width": 900,
         "height": 700,
         "minWidth": 700,

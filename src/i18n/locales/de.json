@@ -1,0 +1,102 @@
+{
+  "app": {
+    "name": "Omni Clock",
+    "version": "Version"
+  },
+  "nav": {
+    "timer": "Timer",
+    "pomodoro": "Pomodoro",
+    "stopwatch": "Stoppuhr",
+    "countdown": "Countdown",
+    "settings": "Einstellungen"
+  },
+  "timer": {
+    "title": "Timer",
+    "start": "Start",
+    "pause": "Pause",
+    "resume": "Fortsetzen",
+    "reset": "Zurücksetzen",
+    "next": "Weiter",
+    "configName": "Konfig-Name",
+    "totalTime": "Gesamtzeit",
+    "segments": "Segmente",
+    "addSegment": "Segment hinzufügen",
+    "segmentName": "Segmentname",
+    "minutes": "Minuten",
+    "createConfig": "Konfig erstellen",
+    "deleteConfig": "Löschen",
+    "noConfigs": "Keine Konfigs"
+  },
+  "pomodoro": {
+    "title": "Pomodoro",
+    "completed": "{{count}} Pomodoros abgeschlossen",
+    "startWork": "Fokus starten",
+    "working": "Fokussiert",
+    "shortBreak": "Kurze Pause",
+    "longBreak": "Lange Pause",
+    "breakFinished": "Pause beendet!",
+    "workFinished": "Pomodoro abgeschlossen!",
+    "startNext": "Nächsten Pomodoro starten!",
+    "takeBreak": "Mach eine Pause, mach dich bereit für den nächsten!",
+    "takeLongBreak": "Zeit für eine lange Pause!",
+    "newRound": "Neuen Pomodoro starten!",
+    "settings": "Einstellungen",
+    "workDuration": "Arbeitszeit",
+    "shortBreakDuration": "Kurze Pause",
+    "longBreakDuration": "Lange Pause",
+    "longBreakInterval": "Lange-Pause-Intervall",
+    "pomodorosBeforeLong": "Alle {{count}} Pomodoros",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "skip": "Überspringen",
+    "reset": "Zurücksetzen",
+    "tips": {
+      "title": "Pomodoro-Technik",
+      "work": "{{minutes}} Minuten fokussiert arbeiten",
+      "shortBreak": "{{minutes}} Minuten kurze Pause",
+      "longBreak": "{{minutes}} Minuten lange Pause nach {{count}} Pomodoros",
+      "autoSwitch": "Wechselt automatisch zum nächsten Status"
+    }
+  },
+  "stopwatch": {
+    "title": "Stoppuhr",
+    "lap": "Runde",
+    "reset": "Zurücksetzen",
+    "total": "Gesamt",
+    "lapNumber": "Runde {{count}}",
+    "noLaps": "Keine Runden aufgezeichnet"
+  },
+  "countdown": {
+    "title": "Countdown",
+    "start": "Start",
+    "pause": "Pause",
+    "resume": "Fortsetzen",
+    "reset": "Zurücksetzen",
+    "setTime": "Zeit einstellen",
+    "hours": "Stunden",
+    "minutes": "Minuten",
+    "seconds": "Sekunden"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "notifications": "Benachrichtigungen",
+    "notificationsEnabled": "Benachrichtigungen aktivieren",
+    "sound": "Ton",
+    "soundEnabled": "Ton aktivieren",
+    "theme": "Design",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System",
+    "language": "Sprache",
+    "selectLanguage": "Sprache auswählen",
+    "about": "Über",
+    "version": "Version"
+  },
+  "common": {
+    "confirm": "Bestätigen",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "save": "Speichern"
+  }
+}

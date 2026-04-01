@@ -1,0 +1,102 @@
+{
+  "app": {
+    "name": "Omni Clock",
+    "version": "Version"
+  },
+  "nav": {
+    "timer": "Minuteur",
+    "pomodoro": "Pomodoro",
+    "stopwatch": "Chronomètre",
+    "countdown": "Compte à rebours",
+    "settings": "Paramètres"
+  },
+  "timer": {
+    "title": "Minuteur",
+    "start": "Démarrer",
+    "pause": "Pause",
+    "resume": "Reprendre",
+    "reset": "Réinitialiser",
+    "next": "Suivant",
+    "configName": "Nom de config",
+    "totalTime": "Temps total",
+    "segments": "Segments",
+    "addSegment": "Ajouter un segment",
+    "segmentName": "Nom du segment",
+    "minutes": "minutes",
+    "createConfig": "Créer config",
+    "deleteConfig": "Supprimer",
+    "noConfigs": "Aucune config"
+  },
+  "pomodoro": {
+    "title": "Pomodoro",
+    "completed": "{{count}} pomodoros terminés",
+    "startWork": "Commencer la concentration",
+    "working": "En concentration",
+    "shortBreak": "Pause courte",
+    "longBreak": "Pause longue",
+    "breakFinished": "Pause terminée !",
+    "workFinished": "Pomodoro terminé !",
+    "startNext": "Commencer le prochain Pomodoro !",
+    "takeBreak": "Prenez une pause, préparez-vous pour la prochaine !",
+    "takeLongBreak": "C'est l'heure de la pause longue !",
+    "newRound": "Commencer un nouveau Pomodoro !",
+    "settings": "Paramètres",
+    "workDuration": "Durée de travail",
+    "shortBreakDuration": "Durée de pause courte",
+    "longBreakDuration": "Durée de pause longue",
+    "longBreakInterval": "Intervalle de pause longue",
+    "pomodorosBeforeLong": "Toutes les {{count}} pomodoros",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "skip": "Passer",
+    "reset": "Réinitialiser",
+    "tips": {
+      "title": "Technique Pomodoro",
+      "work": "Concentrez-vous pendant {{minutes}} minutes",
+      "shortBreak": "Pause courte de {{minutes}} minutes",
+      "longBreak": "Pause longue de {{minutes}} minutes après {{count}} pomodoros",
+      "autoSwitch": "Passe automatiquement à l'état suivant"
+    }
+  },
+  "stopwatch": {
+    "title": "Chronomètre",
+    "lap": "Tour",
+    "reset": "Réinitialiser",
+    "total": "Total",
+    "lapNumber": "Tour {{count}}",
+    "noLaps": "Aucun enregistrement"
+  },
+  "countdown": {
+    "title": "Compte à rebours",
+    "start": "Démarrer",
+    "pause": "Pause",
+    "resume": "Reprendre",
+    "reset": "Réinitialiser",
+    "setTime": "Régler l'heure",
+    "hours": "Heures",
+    "minutes": "Minutes",
+    "seconds": "Secondes"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "notifications": "Notifications",
+    "notificationsEnabled": "Activer les notifications",
+    "sound": "Son",
+    "soundEnabled": "Activer le son",
+    "theme": "Thème",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système",
+    "language": "Langue",
+    "selectLanguage": "Sélectionner la langue",
+    "about": "À propos",
+    "version": "Version"
+  },
+  "common": {
+    "confirm": "Confirmer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "save": "Enregistrer"
+  }
+}

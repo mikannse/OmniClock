@@ -1,8 +1,10 @@
+import { useTranslation } from 'react-i18next';
 import { useTimerContext } from '../../contexts/TimerContext';
 import { formatTime } from '../../utils/time';
 import { cn } from '@/lib/utils';
 
 export function TimerDisplay() {
+  const { t } = useTranslation();
   const { timerState, activeConfig, warning, jumpToSegment } = useTimerContext();
 
   if (!activeConfig) return null;
@@ -24,7 +26,7 @@ export function TimerDisplay() {
               {currentSegment?.name}
             </span>
             <span className="text-xs text-muted-foreground">
-              阶段 {timerState.currentSegmentIndex + 1} / {activeConfig.segments.length}
+              {t('timer.segments')} {timerState.currentSegmentIndex + 1} / {activeConfig.segments.length}
             </span>
           </div>
         </div>
@@ -55,11 +57,11 @@ export function TimerDisplay() {
         {/* Stats row */}
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <span>总耗时</span>
+            <span>{t('stopwatch.total')}</span>
             <span className="font-mono">{formatTime(timerState.totalElapsedSeconds)}</span>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
-            <span>剩余</span>
+            <span>Remaining</span>
             <span className="font-mono">{formatTime(timerState.remainingSeconds)}</span>
           </div>
         </div>
@@ -69,7 +71,9 @@ export function TimerDisplay() {
       <div className="rounded-lg border border-border p-4">
         <div className="flex items-center gap-3 mb-4">
           <div className="h-px w-6 bg-border" />
-          <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">分段概览</span>
+          <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            {t('timer.segments')} Overview
+          </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">

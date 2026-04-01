@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { generateId } from '../../utils/time';
 import type { StopwatchLap } from '../../types';
@@ -6,17 +7,23 @@ import { Play, Pause, RotateCcw, Flag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function StopwatchView() {
+  const { t } = useTranslation();
   const [isRunning, setIsRunning] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
   const [laps, setLaps] = useState<StopwatchLap[]>([]);
   const [lastLapTime, setLastLapTime] = useState(0);
   const intervalRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const pausedTimeRef = useRef<number>(0);
 
   useEffect(() => {
     if (isRunning) {
+      startTimeRef.current = Date.now() - pausedTimeRef.current;
       intervalRef.current = window.setInterval(() => {
-        setElapsedSeconds((prev) => prev + 1);
-      }, 1000);
+        const elapsed = Date.now() - startTimeRef.current;
+        setElapsedMs(elapsed);
+        pausedTimeRef.current = elapsed;
+      }, 10);
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -30,31 +37,43 @@ export function StopwatchView() {
     };
   }, [isRunning]);
 
-  const handleStart = () => setIsRunning(true);
-  const handlePause = () => setIsRunning(false);
+  const handleStart = () => {
+    if (isRunning) return;
+    startTimeRef.current = Date.now();
+    setIsRunning(true);
+  };
+
+  const handlePause = () => {
+    if (!isRunning) return;
+    pausedTimeRef.current = elapsedMs;
+    setIsRunning(false);
+  };
+
   const handleReset = () => {
     setIsRunning(false);
-    setElapsedSeconds(0);
+    setElapsedMs(0);
     setLaps([]);
     setLastLapTime(0);
+    pausedTimeRef.current = 0;
   };
+
   const handleLap = () => {
     if (!isRunning) return;
-    const lapTime = elapsedSeconds - lastLapTime;
+    const lapTime = elapsedMs - lastLapTime;
     const newLap: StopwatchLap = {
       id: generateId(),
-      time: elapsedSeconds,
+      time: elapsedMs,
       lapTime,
     };
     setLaps((prev) => [newLap, ...prev]);
-    setLastLapTime(elapsedSeconds);
+    setLastLapTime(elapsedMs);
   };
 
-  const formatMs = (ms: number) => {
-    const totalMs = ms * 1000;
+  const formatTime = (ms: number) => {
+    const totalMs = Math.floor(ms);
     const minutes = Math.floor(totalMs / 60000);
     const seconds = Math.floor((totalMs % 60000) / 1000);
-    const centiseconds = 0;
+    const centiseconds = Math.floor((totalMs % 1000) / 10);
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
   };
 
@@ -65,6 +84,12 @@ export function StopwatchView() {
     return { best: sorted[0].i, worst: sorted[sorted.length - 1].i };
   };
 
+  const getStatusText = () => {
+    if (isRunning) return 'Running';
+    if (elapsedMs > 0) return 'Paused';
+    return 'Ready';
+  };
+
   const { best, worst } = getBestWorst();
 
   return (
@@ -72,10 +97,10 @@ export function StopwatchView() {
       {/* Display */}
       <div className="text-center">
         <div className="font-mono text-5xl md:text-7xl font-light tracking-tight text-foreground tabular-nums">
-          {formatMs(elapsedSeconds)}
+          {formatTime(elapsedMs)}
         </div>
         <div className="mt-2 text-xs text-muted-foreground uppercase tracking-widest">
-          {isRunning ? '运行中' : elapsedSeconds > 0 ? '已暂停' : '准备就绪'}
+          {getStatusText()}
         </div>
       </div>
 
@@ -85,15 +110,15 @@ export function StopwatchView() {
           variant="outline"
           size="lg"
           className="h-14 w-14 rounded-full"
-          onClick={elapsedSeconds > 0 && !isRunning ? handleReset : handleLap}
-          disabled={elapsedSeconds === 0}
+          onClick={elapsedMs > 0 && !isRunning ? handleReset : handleLap}
+          disabled={elapsedMs === 0}
         >
-          {elapsedSeconds > 0 && !isRunning ? (
+          {elapsedMs > 0 && !isRunning ? (
             <RotateCcw className="h-5 w-5" />
           ) : (
             <Flag className="h-5 w-5" />
           )}
-          <span className="sr-only">{elapsedSeconds > 0 && !isRunning ? '重置' : '计圈'}</span>
+          <span className="sr-only">{elapsedMs > 0 && !isRunning ? t('stopwatch.reset') : t('stopwatch.lap')}</span>
         </Button>
 
         <Button
@@ -109,7 +134,7 @@ export function StopwatchView() {
           ) : (
             <Play className="h-8 w-8 ml-1" />
           )}
-          <span className="sr-only">{isRunning ? '暂停' : '开始'}</span>
+          <span className="sr-only">{isRunning ? t('timer.pause') : t('timer.start')}</span>
         </Button>
 
         <Button
@@ -117,10 +142,10 @@ export function StopwatchView() {
           size="lg"
           className="h-14 w-14 rounded-full"
           onClick={handleReset}
-          disabled={elapsedSeconds === 0}
+          disabled={elapsedMs === 0}
         >
           <RotateCcw className="h-5 w-5" />
-          <span className="sr-only">重置</span>
+          <span className="sr-only">{t('stopwatch.reset')}</span>
         </Button>
       </div>
 
@@ -131,9 +156,9 @@ export function StopwatchView() {
             <table className="w-full">
               <thead className="sticky top-0 bg-card">
                 <tr className="border-b border-border">
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">圈数</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">圈时</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">总时</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('stopwatch.lap')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('stopwatch.lap')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('stopwatch.total')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -146,9 +171,9 @@ export function StopwatchView() {
                       index === worst && laps.length > 1 && "text-muted-foreground"
                     )}
                   >
-                    <td className="px-4 py-3 text-sm font-medium">第 {lap.id} 圈</td>
-                    <td className="px-4 py-3 text-sm font-mono text-right tabular-nums">{formatMs(lap.lapTime)}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-right tabular-nums text-muted-foreground">{formatMs(lap.time)}</td>
+                    <td className="px-4 py-3 text-sm font-medium">{t('stopwatch.lapNumber', { count: laps.length - index })}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-right tabular-nums">{formatTime(lap.lapTime)}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-right tabular-nums text-muted-foreground">{formatTime(lap.time)}</td>
                   </tr>
                 ))}
               </tbody>

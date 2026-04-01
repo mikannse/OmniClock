@@ -1,0 +1,102 @@
+{
+  "app": {
+    "name": "Omni Clock",
+    "version": "バージョン"
+  },
+  "nav": {
+    "timer": "タイマー",
+    "pomodoro": "ポモドーロ",
+    "stopwatch": "ストップウォッチ",
+    "countdown": "カウントダウン",
+    "settings": "設定"
+  },
+  "timer": {
+    "title": "タイマー",
+    "start": "開始",
+    "pause": "一時停止",
+    "resume": "再開",
+    "reset": "リセット",
+    "next": "次へ",
+    "configName": "設定名",
+    "totalTime": "合計時間",
+    "segments": "セグメント",
+    "addSegment": "セグメント追加",
+    "segmentName": "セグメント名",
+    "minutes": "分",
+    "createConfig": "設定作成",
+    "deleteConfig": "削除",
+    "noConfigs": "設定なし"
+  },
+  "pomodoro": {
+    "title": "ポモドーロ",
+    "completed": "{{count}} ポモドーロ完了",
+    "startWork": "集中開始",
+    "working": "集中中",
+    "shortBreak": "小休憩",
+    "longBreak": "長休憩",
+    "breakFinished": "休憩終了！",
+    "workFinished": "ポモドーロ完了！",
+    "startNext": "次のポモドーロを開始！",
+    "takeBreak": "休憩して、次の準備を！",
+    "takeLongBreak": "長休憩の時間です！",
+    "newRound": "新しいポモドーロを開始！",
+    "settings": "設定",
+    "workDuration": "作業時間",
+    "shortBreakDuration": "小休憩時間",
+    "longBreakDuration": "長休憩時間",
+    "longBreakInterval": "長休憩の間隔",
+    "pomodorosBeforeLong": "{{count}} ポモドーロごと",
+    "save": "設定を保存",
+    "cancel": "キャンセル",
+    "skip": "スキップ",
+    "reset": "リセット",
+    "tips": {
+      "title": "ポモドーロテクニック",
+      "work": "{{minutes}} 分間集中作業",
+      "shortBreak": "{{minutes}} 分小休憩",
+      "longBreak": "{{count}} ポモドーロ後に{{minutes}} 分長休憩",
+      "autoSwitch": "時間が来ると次の状態に自動切り替え"
+    }
+  },
+  "stopwatch": {
+    "title": "ストップウォッチ",
+    "lap": "ラップ",
+    "reset": "リセット",
+    "total": "合計",
+    "lapNumber": "{{count}} ラップ目",
+    "noLaps": "ラップ記録なし"
+  },
+  "countdown": {
+    "title": "カウントダウン",
+    "start": "開始",
+    "pause": "一時停止",
+    "resume": "再開",
+    "reset": "リセット",
+    "setTime": "時刻設定",
+    "hours": "時",
+    "minutes": "分",
+    "seconds": "秒"
+  },
+  "settings": {
+    "title": "設定",
+    "notifications": "通知",
+    "notificationsEnabled": "通知を有効にする",
+    "sound": "サウンド",
+    "soundEnabled": "サウンドを有効にする",
+    "theme": "テーマ",
+    "light": "ライト",
+    "dark": "ダーク",
+    "system": "システム",
+    "language": "言語",
+    "selectLanguage": "言語を選択",
+    "about": "について",
+    "version": "バージョン"
+  },
+  "common": {
+    "confirm": "確認",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "edit": "編集",
+    "save": "保存"
+  }
+}
