@@ -1,7 +1,7 @@
 import { BaseDirectory, exists, mkdir, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import type { TimerConfig, Settings, PomodoroSettings } from '../types';
 
-const DATA_DIR = 'OmniClock';
+const DATA_DIR = 'data';
 const CONFIG_FILE = 'configs.json';
 const SETTINGS_FILE = 'settings.json';
 const POMODORO_FILE = 'pomodoro.json';
