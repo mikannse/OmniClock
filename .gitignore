@@ -9,7 +9,6 @@ dist-ssr/
 # Tauri
 src-tauri/target/
 src-tauri/gen/
-src-tauri/icons/
 target/
 
 # IDE
