@@ -5,6 +5,7 @@ import { generateId } from '../../utils/time';
 import type { StopwatchLap } from '../../types';
 import { Play, Pause, RotateCcw, Flag } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { playSound } from '../../utils/sound';
 
 export function StopwatchView() {
   const { t } = useTranslation();
@@ -41,12 +42,14 @@ export function StopwatchView() {
     if (isRunning) return;
     startTimeRef.current = Date.now();
     setIsRunning(true);
+    playSound('timerStart');
   };
 
   const handlePause = () => {
     if (!isRunning) return;
     pausedTimeRef.current = elapsedMs;
     setIsRunning(false);
+    playSound('hover');
   };
 
   const handleReset = () => {
