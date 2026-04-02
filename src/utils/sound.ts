@@ -34,15 +34,15 @@ export function playSound(type: SoundType, enabled: boolean = true): void {
         break;
 
       case 'segmentEnd':
-        // Two-tone beep (800Hz + 1000Hz)
+        // Two-tone beep (800Hz + 1000Hz) - 450ms total
         oscillator.frequency.setValueAtTime(800, now);
         oscillator.type = 'sine';
         gainNode.gain.setValueAtTime(0.3, now);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
         oscillator.start(now);
-        oscillator.stop(now + 0.3);
+        oscillator.stop(now + 0.45);
 
-        // Second tone at 1000Hz starting at 0.15s
+        // Second tone at 1000Hz starting at 0.15s, ending at 0.45s
         const osc2 = ctx.createOscillator();
         const gain2 = ctx.createGain();
         osc2.connect(gain2);
@@ -57,7 +57,7 @@ export function playSound(type: SoundType, enabled: boolean = true): void {
         break;
 
       case 'timerEnd':
-        // Triumphant three-tone sequence (C-E-G)
+        // Triumphant three-tone sequence (C-E-G) - 600ms total
         const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
         notes.forEach((freq, i) => {
           const osc = ctx.createOscillator();
@@ -66,11 +66,11 @@ export function playSound(type: SoundType, enabled: boolean = true): void {
           gain.connect(ctx.destination);
           osc.frequency.value = freq;
           osc.type = 'sine';
-          gain.gain.setValueAtTime(0, now + i * 0.2);
-          gain.gain.linearRampToValueAtTime(0.25, now + i * 0.2 + 0.05);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.2 + 0.4);
-          osc.start(now + i * 0.2);
-          osc.stop(now + i * 0.2 + 0.4);
+          gain.gain.setValueAtTime(0, now + i * 0.15);
+          gain.gain.linearRampToValueAtTime(0.25, now + i * 0.15 + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.15 + 0.3);
+          osc.start(now + i * 0.15);
+          osc.stop(now + i * 0.15 + 0.3);
         });
         break;
 
