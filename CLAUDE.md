@@ -96,10 +96,24 @@ ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings'
 - Right-click opens menu
 - Emits `tray-start-work` event to frontend for starting Pomodoro
 - Tauri feature `tray-icon` enabled in Cargo.toml
+- **Desktop-only**: wrapped in `#[cfg(not(mobile))]` conditionals
+
+### Custom Title Bar (src/components/CustomTitleBar.tsx)
+- Uses `decorations: false` in tauri.conf.json for frameless window
+- Window controls (minimize/maximize/close) implemented in React using Tauri window API
+- `data-tauri-drag-region` attribute enables native window dragging
+- `isMaximized` state tracks window state for correct icon display
+- `shrink-0` prevents title bar from shrinking in flex layout
+
+### Platform Differences
+- **Desktop**: Custom title bar, system tray, window controls
+- **Mobile (Android/iOS)**: Uses native system title bar (`decorations: true`), no tray
+- Frontend detects platform via `window.__TAURI__` presence
+- Rust backend uses `#[cfg(not(mobile))]` for desktop-only code
 
 ### Tauri Capabilities (src-tauri/capabilities/default.json)
 - `core:default`, `core:event:default`
-- `core:window:default`, `core:window:allow-show`, `core:window:allow-hide`, `core:window:allow-set-focus`
+- `core:window:default`, `core:window:allow-minimize`, `core:window:allow-maximize`, `core:window:allow-unmaximize`, `core:window:allow-is-maximized`, `core:window:allow-start-dragging`, `core:window:allow-close`, `core:window:allow-show`, `core:window:allow-hide`, `core:window:allow-set-focus`
 - `fs:default`, `fs:allow-appdata-read-recursive`, `fs:allow-appdata-write-recursive`
 - `notification:default`, `opener:default`
 
@@ -111,6 +125,11 @@ ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings'
 - Variables exposed via `@theme inline` for Tailwind utility classes
 - **Light mode**: white background (`oklch(1 0 0)`), dark text
 - **Dark mode**: dark background (`oklch(0.145 0 0)`), light text
+
+**Custom Utilities** (`src/index.css`):
+- `.button-scale` - Hover scale effect (1.05) with spring animation, active scale (0.98)
+- Custom scrollbar styling with `::-webkit-scrollbar` (8px width, border-aware colors)
+- `html, body { height: 100% }` required for full-height layout
 
 **Color System**:
 ```css
@@ -134,6 +153,7 @@ ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings'
 - Minimum size: 700x500px
 - App identifier: OmniClock (from tauri.conf.json)
 - DevTools open automatically in debug builds
+- Custom frameless window (`decorations: false`) with React-based title bar
 
 ### Provider Hierarchy
 ```
