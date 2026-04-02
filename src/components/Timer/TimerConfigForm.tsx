@@ -4,7 +4,7 @@ import { useTimerContext } from '../../contexts/TimerContext';
 import type { TimerSegment } from '../../types';
 import { generateId } from '../../utils/time';
 import { Button } from '@/components/ui/button';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Minus } from 'lucide-react';
 
 interface TimerConfigFormProps {
   editConfig?: {
@@ -104,15 +104,31 @@ export function TimerConfigForm({ editConfig, onSave, onCancel }: TimerConfigFor
                 className="flex-1 px-3 py-2 rounded-md border border-input bg-background text-sm"
                 required
               />
-              <input
-                type="number"
-                value={segment.minutes || ''}
-                onChange={(e) => handleSegmentChange(segment.id, 'minutes', e.target.value)}
-                placeholder={t('timer.minutes')}
-                min="1"
-                className="w-20 px-3 py-2 rounded-md border border-input bg-background text-sm text-center"
-                required
-              />
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleSegmentChange(segment.id, 'minutes', Math.max(1, segment.minutes - 1))}
+                  className="w-8 h-8 flex items-center justify-center rounded-md bg-secondary hover:bg-secondary/80 transition-colors"
+                >
+                  <Minus className="h-3 w-3" />
+                </button>
+                <input
+                  type="number"
+                  value={segment.minutes || ''}
+                  onChange={(e) => handleSegmentChange(segment.id, 'minutes', Math.max(1, Number(e.target.value)))}
+                  placeholder={t('timer.minutes')}
+                  min="1"
+                  className="w-14 px-2 py-2 rounded-md border border-input bg-background text-sm text-center [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSegmentChange(segment.id, 'minutes', segment.minutes + 1)}
+                  className="w-8 h-8 flex items-center justify-center rounded-md bg-secondary hover:bg-secondary/80 transition-colors"
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
               <span className="text-xs text-muted-foreground">MIN</span>
               {segments.length > 1 && (
                 <Button
