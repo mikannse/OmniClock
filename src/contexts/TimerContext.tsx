@@ -3,6 +3,7 @@ import type { TimerConfig, TimerState, TimerSegment, Settings } from '../types';
 import { loadConfigs, saveConfigs, loadSettings, saveSettings } from '../utils/storage';
 import { generateId, minutesToSeconds } from '../utils/time';
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
+import { playSound } from '../utils/sound';
 
 interface TimerContextType {
   configs: TimerConfig[];
@@ -111,7 +112,6 @@ const TimerContext = createContext<TimerContextType | null>(null);
 export function TimerProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(timerReducer, initialState);
   const intervalRef = useRef<number | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     loadConfigs().then((configs) => dispatch({ type: 'SET_CONFIGS', payload: configs }));
@@ -153,26 +153,9 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.remainingSeconds, state.status, state.currentSegmentIndex, state.activeConfig]);
 
-  const playSound = useCallback(async () => {
+  const playTimerSound = useCallback((type: 'segmentEnd' | 'timerEnd' | 'timerStart') => {
     if (!state.settings.soundEnabled) return;
-    try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext();
-      }
-      const ctx = audioContextRef.current;
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      oscillator.frequency.value = 800;
-      oscillator.type = 'sine';
-      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-      oscillator.start(ctx.currentTime);
-      oscillator.stop(ctx.currentTime + 0.5);
-    } catch (e) {
-      console.error('Failed to play sound:', e);
-    }
+    playSound(type);
   }, [state.settings.soundEnabled]);
 
   const showNotification = useCallback(async (title: string, body: string) => {
@@ -192,17 +175,17 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   }, [state.settings.notificationsEnabled]);
 
   const handleSegmentEnd = useCallback((config: TimerConfig, segmentIndex: number, nextSegment: TimerSegment, _nextIndex: number) => {
-    playSound();
+    playTimerSound('segmentEnd');
     showNotification(
       `「${config.segments[segmentIndex].name}」时间到！`,
       `下一个题型：「${nextSegment.name}」`
     );
-  }, [playSound, showNotification]);
+  }, [playTimerSound, showNotification]);
 
   const handleTimerEnd = useCallback(() => {
-    playSound();
+    playTimerSound('timerEnd');
     showNotification('计时结束！', '所有题型时间已用完');
-  }, [playSound, showNotification]);
+  }, [playTimerSound, showNotification]);
 
   const addConfig = useCallback(async (config: Omit<TimerConfig, 'id' | 'createdAt'>) => {
     const newConfig: TimerConfig = {
@@ -232,7 +215,8 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     if (!config || config.segments.length === 0) return;
     const initialSeconds = minutesToSeconds(config.segments[0].minutes);
     dispatch({ type: 'START_TIMER', payload: { config, initialSeconds } });
-  }, [state.configs]);
+    playTimerSound('timerStart');
+  }, [state.configs, playTimerSound]);
 
   const pauseTimer = useCallback(() => {
     dispatch({ type: 'PAUSE' });
