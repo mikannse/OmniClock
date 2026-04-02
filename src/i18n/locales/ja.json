@@ -79,6 +79,7 @@
   },
   "settings": {
     "title": "設定",
+    "subtitle": "時計アプリの体験をカスタマイズ",
     "notifications": "通知",
     "notificationsEnabled": "通知を有効にする",
     "sound": "サウンド",

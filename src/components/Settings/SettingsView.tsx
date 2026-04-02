@@ -17,7 +17,7 @@ export function SettingsView() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t('settings.title')}</h1>
-        <p className="text-sm text-muted-foreground mt-1">Customize your clock app experience</p>
+        <p className="text-sm text-muted-foreground mt-1">{t('settings.subtitle')}</p>
       </div>
 
       {/* Notifications */}

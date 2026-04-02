@@ -82,7 +82,7 @@ function AppContent() {
             <button
               key={item.id}
               onClick={() => setActiveModule(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors button-scale ${
                 activeModule === item.id
                   ? 'bg-secondary text-secondary-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'

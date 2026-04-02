@@ -79,6 +79,7 @@
   },
   "settings": {
     "title": "Settings",
+    "subtitle": "Customize your clock app experience",
     "notifications": "Notifications",
     "notificationsEnabled": "Enable Notifications",
     "sound": "Sound",

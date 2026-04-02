@@ -79,6 +79,7 @@
   },
   "settings": {
     "title": "Paramètres",
+    "subtitle": "Personnalisez votre application d'horloge",
     "notifications": "Notifications",
     "notificationsEnabled": "Activer les notifications",
     "sound": "Son",

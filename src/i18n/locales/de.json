@@ -79,6 +79,7 @@
   },
   "settings": {
     "title": "Einstellungen",
+    "subtitle": "Passen Sie Ihre Uhr-App an",
     "notifications": "Benachrichtigungen",
     "notificationsEnabled": "Benachrichtigungen aktivieren",
     "sound": "Ton",

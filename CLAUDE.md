@@ -9,6 +9,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ```bash
+# Install dependencies (first time only)
+npm install
+
 # Start development server (frontend + Tauri)
 npm run tauri dev
 
@@ -70,10 +73,11 @@ ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings'
 
 ### Persistence (src/utils/storage.ts)
 - Uses Tauri fs plugin with AppData directory
-- `configs.json` - Array of TimerConfig
-- `settings.json` - Settings object (includes theme preference)
-- `pomodoro.json` - PomodoroSettings object
-- Auto-creates `OmniClock/` directory on first load
+- Data stored in `data/` subdirectory within AppData/OmniClock
+- `data/configs.json` - Array of TimerConfig
+- `data/settings.json` - Settings object (includes theme preference)
+- `data/pomodoro.json` - PomodoroSettings object
+- Auto-creates `OmniClock/data/` directory on first load
 
 ### Internationalization (src/i18n/)
 - 6 languages: English, Chinese (Simplified/Traditional), Japanese, French, German
@@ -128,7 +132,7 @@ ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings'
 ### Window Configuration
 - Default size: 900x700px
 - Minimum size: 700x500px
-- App identifier: com.allclock.clock (keep for compatibility)
+- App identifier: OmniClock (from tauri.conf.json)
 - DevTools open automatically in debug builds
 
 ### Provider Hierarchy

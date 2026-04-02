@@ -79,6 +79,7 @@
   },
   "settings": {
     "title": "設定",
+    "subtitle": "自訂您的時鐘應用體驗",
     "notifications": "通知",
     "notificationsEnabled": "啟用通知",
     "sound": "提示音",
