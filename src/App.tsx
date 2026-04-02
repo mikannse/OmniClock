@@ -8,6 +8,7 @@ import { PomodoroView } from './components/Pomodoro/PomodoroView';
 import { StopwatchView } from './components/Stopwatch/StopwatchView';
 import { CountdownView } from './components/Countdown/CountdownView';
 import { SettingsView } from './components/Settings/SettingsView';
+import { CustomTitleBar } from './components/CustomTitleBar';
 import { Clock, Timer, Hourglass, Settings, Coffee } from 'lucide-react';
 import { listen } from '@tauri-apps/api/event';
 import { usePomodoroContext } from './contexts/PomodoroContext';
@@ -65,11 +66,11 @@ function AppContent() {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex flex-1 bg-background overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-56 border-r border-border flex flex-col">
+      <aside className="w-56 border-r border-border flex flex-col shrink-0">
         {/* Logo */}
-        <div className="h-16 flex items-center gap-3 px-4 border-b border-border">
+        <div className="h-16 flex items-center gap-3 px-4 border-b border-border shrink-0">
           <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
             <Clock className="h-4 w-4 text-primary-foreground" />
           </div>
@@ -77,7 +78,7 @@ function AppContent() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {NAV_ITEMS.map((item) => (
             <button
               key={item.id}
@@ -95,13 +96,13 @@ function AppContent() {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border shrink-0">
           <p className="text-xs text-muted-foreground text-center">{t('app.version')} v{VERSION}</p>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-6 py-8">
           {renderModule()}
         </div>
@@ -115,8 +116,11 @@ function App() {
     <TimerProvider>
       <PomodoroProvider>
         <ThemeProvider>
-          <TrayEventHandler />
-          <AppContent />
+          <div className="flex flex-col h-screen overflow-hidden">
+            <CustomTitleBar />
+            <TrayEventHandler />
+            <AppContent />
+          </div>
         </ThemeProvider>
       </PomodoroProvider>
     </TimerProvider>
