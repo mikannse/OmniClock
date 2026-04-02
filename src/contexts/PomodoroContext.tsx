@@ -110,7 +110,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     };
   }, [state.status, settings]);
 
-  const playSound = useCallback(async () => {
+  const playSound = useCallback(async (soundType: 'timerStart' | 'timerEnd' = 'timerEnd') => {
     try {
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext();
@@ -120,12 +120,25 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
       const gainNode = ctx.createGain();
       oscillator.connect(gainNode);
       gainNode.connect(ctx.destination);
-      oscillator.frequency.value = 800;
-      oscillator.type = 'sine';
-      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-      oscillator.start(ctx.currentTime);
-      oscillator.stop(ctx.currentTime + 0.5);
+
+      if (soundType === 'timerStart') {
+        // Short ascending chirp (400Hz → 600Hz)
+        oscillator.frequency.setValueAtTime(400, ctx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.1);
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.25, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.15);
+      } else {
+        // Original timer end sound (800Hz)
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.5);
+      }
     } catch (e) {
       console.error('Failed to play sound:', e);
     }
@@ -210,18 +223,21 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     const seconds = settings.workMinutes * 60;
     dispatch({ type: 'START', payload: { status: 'working', seconds } });
     statusRef.current = 'working';
+    playSound('timerStart');
   }, [settings.workMinutes]);
 
   const startShortBreak = useCallback(() => {
     const seconds = settings.shortBreakMinutes * 60;
     dispatch({ type: 'START', payload: { status: 'shortBreak', seconds } });
     statusRef.current = 'shortBreak';
+    playSound('timerStart');
   }, [settings.shortBreakMinutes]);
 
   const startLongBreak = useCallback(() => {
     const seconds = settings.longBreakMinutes * 60;
     dispatch({ type: 'START', payload: { status: 'longBreak', seconds } });
     statusRef.current = 'longBreak';
+    playSound('timerStart');
   }, [settings.longBreakMinutes]);
 
   const skip = useCallback(() => {
