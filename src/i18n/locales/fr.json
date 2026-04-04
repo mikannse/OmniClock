@@ -87,6 +87,7 @@
     "system": "Système",
     "systemSection": "Système",
     "autostartEnabled": "Démarrer avec le système",
+    "closeToTray": "Réduire dans la barre lors de la fermeture",
     "theme": "Thème",
     "light": "Clair",
     "dark": "Sombre",

@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, RotateCcw, Plus, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { playSound } from '../../utils/sound';
+import { useCountdownContext } from '../../contexts/CountdownContext';
 
 const PRESETS = [
   { label: '1 min', value: 60 },
@@ -16,27 +15,8 @@ const PRESETS = [
 
 export function CountdownView() {
   const { t } = useTranslation();
-  const [totalSeconds, setTotalSeconds] = useState(300);
-  const [timeLeft, setTimeLeft] = useState(300);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isEditing, setIsEditing] = useState(true);
-
-  useEffect(() => {
-    let interval: number | null = null;
-    if (isRunning && timeLeft > 0) {
-      interval = window.setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            setIsRunning(false);
-            playSound('timerEnd');
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => { if (interval) clearInterval(interval); };
-  }, [isRunning, timeLeft]);
+  const { state, start, pause, reset, adjustTime, setTotalSeconds, setTimeLeft } = useCountdownContext();
+  const { totalSeconds, timeLeft, isRunning, isEditing } = state;
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -48,28 +28,12 @@ export function CountdownView() {
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleStartStop = useCallback(() => {
-    if (isEditing && timeLeft > 0) setIsEditing(false);
-    const wasRunning = isRunning;
-    setIsRunning((prev) => !prev);
-    playSound(wasRunning ? 'hover' : 'timerStart');
-  }, [isEditing, timeLeft]);
-
-  const handleReset = useCallback(() => {
-    setIsRunning(false);
-    setTimeLeft(totalSeconds);
-    setIsEditing(true);
-  }, [totalSeconds]);
-
-  const adjustTime = (amount: number, unit: 'hours' | 'minutes' | 'seconds') => {
-    if (!isEditing) return;
-    let seconds = 0;
-    if (unit === 'hours') seconds = amount * 3600;
-    else if (unit === 'minutes') seconds = amount * 60;
-    else seconds = amount;
-    const newTime = Math.max(0, Math.min(86399, timeLeft + seconds));
-    setTimeLeft(newTime);
-    setTotalSeconds(newTime);
+  const handleStartStop = () => {
+    if (isRunning) {
+      pause();
+    } else {
+      start();
+    }
   };
 
   const setPreset = (value: number) => {
@@ -185,7 +149,7 @@ export function CountdownView() {
           variant="outline"
           size="lg"
           className="h-14 w-14 rounded-full"
-          onClick={handleReset}
+          onClick={reset}
           disabled={timeLeft === totalSeconds && isEditing}
         >
           <RotateCcw className="h-5 w-5" />

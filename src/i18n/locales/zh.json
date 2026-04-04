@@ -87,6 +87,7 @@
     "system": "跟随系统",
     "systemSection": "系统",
     "autostartEnabled": "开机自启动",
+    "closeToTray": "关闭时最小化到托盘",
     "theme": "主题",
     "light": "浅色",
     "dark": "深色",

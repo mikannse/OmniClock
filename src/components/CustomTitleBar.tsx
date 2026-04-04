@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, Square, X, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTimerContext } from '../contexts/TimerContext';
 
 export function CustomTitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
   const appWindow = getCurrentWindow();
+  const { settings } = useTimerContext();
 
   const handleMinimize = () => appWindow.minimize();
 
@@ -20,7 +22,13 @@ export function CustomTitleBar() {
     }
   };
 
-  const handleClose = () => appWindow.close();
+  const handleClose = () => {
+    if (settings.closeToTray) {
+      appWindow.hide();
+    } else {
+      appWindow.close();
+    }
+  };
 
   return (
     <div

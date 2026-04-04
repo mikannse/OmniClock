@@ -87,6 +87,7 @@
     "system": "システム",
     "systemSection": "システム",
     "autostartEnabled": "システム起動時に開始",
+    "closeToTray": "閉じるときにトレイに最小化",
     "theme": "テーマ",
     "light": "ライト",
     "dark": "ダーク",

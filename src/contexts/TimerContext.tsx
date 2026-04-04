@@ -38,7 +38,7 @@ type TimerAction =
 
 const initialState: TimerState & { configs: TimerConfig[]; settings: Settings; activeConfig: TimerConfig | null; warning: boolean } = {
   configs: [],
-  settings: { notificationsEnabled: true, soundEnabled: true, theme: 'system', autostartEnabled: false },
+  settings: { notificationsEnabled: true, soundEnabled: true, theme: 'system', autostartEnabled: false, closeToTray: false },
   activeConfig: null,
   status: 'idle',
   currentSegmentIndex: 0,

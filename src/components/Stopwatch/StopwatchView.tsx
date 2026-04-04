@@ -1,76 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { generateId } from '../../utils/time';
-import type { StopwatchLap } from '../../types';
 import { Play, Pause, RotateCcw, Flag } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { playSound } from '../../utils/sound';
+import { useStopwatchContext } from '../../contexts/StopwatchContext';
 
 export function StopwatchView() {
   const { t } = useTranslation();
-  const [isRunning, setIsRunning] = useState(false);
-  const [elapsedMs, setElapsedMs] = useState(0);
-  const [laps, setLaps] = useState<StopwatchLap[]>([]);
-  const [lastLapTime, setLastLapTime] = useState(0);
-  const intervalRef = useRef<number | null>(null);
-  const startTimeRef = useRef<number>(0);
-  const pausedTimeRef = useRef<number>(0);
-
-  useEffect(() => {
-    if (isRunning) {
-      startTimeRef.current = Date.now() - pausedTimeRef.current;
-      intervalRef.current = window.setInterval(() => {
-        const elapsed = Date.now() - startTimeRef.current;
-        setElapsedMs(elapsed);
-        pausedTimeRef.current = elapsed;
-      }, 10);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isRunning]);
-
-  const handleStart = () => {
-    if (isRunning) return;
-    startTimeRef.current = Date.now();
-    setIsRunning(true);
-    playSound('timerStart');
-  };
-
-  const handlePause = () => {
-    if (!isRunning) return;
-    pausedTimeRef.current = elapsedMs;
-    setIsRunning(false);
-    playSound('hover');
-  };
-
-  const handleReset = () => {
-    setIsRunning(false);
-    setElapsedMs(0);
-    setLaps([]);
-    setLastLapTime(0);
-    pausedTimeRef.current = 0;
-  };
-
-  const handleLap = () => {
-    if (!isRunning) return;
-    const lapTime = elapsedMs - lastLapTime;
-    const newLap: StopwatchLap = {
-      id: generateId(),
-      time: elapsedMs,
-      lapTime,
-    };
-    setLaps((prev) => [newLap, ...prev]);
-    setLastLapTime(elapsedMs);
-  };
+  const { state, start, pause, reset, lap } = useStopwatchContext();
+  const { isRunning, elapsedMs, laps } = state;
 
   const formatTime = (ms: number) => {
     const totalMs = Math.floor(ms);
@@ -113,7 +50,7 @@ export function StopwatchView() {
           variant="outline"
           size="lg"
           className="h-14 w-14 rounded-full"
-          onClick={elapsedMs > 0 && !isRunning ? handleReset : handleLap}
+          onClick={elapsedMs > 0 && !isRunning ? reset : lap}
           disabled={elapsedMs === 0}
         >
           {elapsedMs > 0 && !isRunning ? (
@@ -130,7 +67,7 @@ export function StopwatchView() {
             "h-20 w-20 rounded-full transition-all duration-300",
             isRunning ? "bg-accent hover:bg-accent/90" : "bg-primary hover:bg-primary/90"
           )}
-          onClick={isRunning ? handlePause : handleStart}
+          onClick={isRunning ? pause : start}
         >
           {isRunning ? (
             <Pause className="h-8 w-8" />
@@ -144,7 +81,7 @@ export function StopwatchView() {
           variant="outline"
           size="lg"
           className="h-14 w-14 rounded-full"
-          onClick={handleReset}
+          onClick={reset}
           disabled={elapsedMs === 0}
         >
           <RotateCcw className="h-5 w-5" />
@@ -165,9 +102,9 @@ export function StopwatchView() {
                 </tr>
               </thead>
               <tbody>
-                {laps.map((lap, index) => (
+                {laps.map((lapItem, index) => (
                   <tr
-                    key={lap.id}
+                    key={lapItem.id}
                     className={cn(
                       "border-b border-border last:border-0 transition-colors",
                       index === best && laps.length > 1 && "text-green-600",
@@ -175,8 +112,8 @@ export function StopwatchView() {
                     )}
                   >
                     <td className="px-4 py-3 text-sm font-medium">{t('stopwatch.lapNumber', { count: laps.length - index })}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-right tabular-nums">{formatTime(lap.lapTime)}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-right tabular-nums text-muted-foreground">{formatTime(lap.time)}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-right tabular-nums">{formatTime(lapItem.lapTime)}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-right tabular-nums text-muted-foreground">{formatTime(lapItem.time)}</td>
                   </tr>
                 ))}
               </tbody>

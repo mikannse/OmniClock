@@ -72,6 +72,16 @@ export function SettingsView() {
               onCheckedChange={(checked) => updateSettings({ autostartEnabled: checked })}
             />
           </div>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="closeToTray" className="text-sm text-muted-foreground">
+              {t('settings.closeToTray')}
+            </Label>
+            <Switch
+              id="closeToTray"
+              checked={settings.closeToTray}
+              onCheckedChange={(checked) => updateSettings({ closeToTray: checked })}
+            />
+          </div>
         </div>
       </section>
 

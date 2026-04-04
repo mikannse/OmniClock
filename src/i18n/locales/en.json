@@ -87,6 +87,7 @@
     "system": "System",
     "systemSection": "System",
     "autostartEnabled": "Start with System",
+    "closeToTray": "Minimize to Tray on Close",
     "theme": "Theme",
     "light": "Light",
     "dark": "Dark",

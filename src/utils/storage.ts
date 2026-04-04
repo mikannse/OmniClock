@@ -11,6 +11,7 @@ const defaultSettings: Settings = {
   soundEnabled: true,
   theme: 'system',
   autostartEnabled: false,
+  closeToTray: false,
 };
 
 const defaultPomodoroSettings: PomodoroSettings = {

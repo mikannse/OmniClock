@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { TimerProvider } from './contexts/TimerContext';
 import { PomodoroProvider } from './contexts/PomodoroContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { StopwatchProvider } from './contexts/StopwatchContext';
+import { CountdownProvider } from './contexts/CountdownContext';
 import { TimerView } from './components/Timer/TimerView';
 import { PomodoroView } from './components/Pomodoro/PomodoroView';
 import { StopwatchView } from './components/Stopwatch/StopwatchView';
@@ -116,11 +118,15 @@ function App() {
     <TimerProvider>
       <PomodoroProvider>
         <ThemeProvider>
-          <div className="flex flex-col h-screen overflow-hidden">
-            <CustomTitleBar />
-            <TrayEventHandler />
-            <AppContent />
-          </div>
+          <StopwatchProvider>
+            <CountdownProvider>
+              <div className="flex flex-col h-screen overflow-hidden">
+                <CustomTitleBar />
+                <TrayEventHandler />
+                <AppContent />
+              </div>
+            </CountdownProvider>
+          </StopwatchProvider>
         </ThemeProvider>
       </PomodoroProvider>
     </TimerProvider>

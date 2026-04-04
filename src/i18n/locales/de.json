@@ -87,6 +87,7 @@
     "system": "System",
     "systemSection": "System",
     "autostartEnabled": "Mit System starten",
+    "closeToTray": "Beim Schließen in die Taskleiste minimieren",
     "theme": "Design",
     "light": "Hell",
     "dark": "Dunkel",
