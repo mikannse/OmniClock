@@ -10,6 +10,7 @@ const defaultSettings: Settings = {
   notificationsEnabled: true,
   soundEnabled: true,
   theme: 'system',
+  autostartEnabled: false,
 };
 
 const defaultPomodoroSettings: PomodoroSettings = {

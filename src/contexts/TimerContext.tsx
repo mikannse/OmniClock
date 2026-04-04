@@ -4,6 +4,7 @@ import { loadConfigs, saveConfigs, loadSettings, saveSettings } from '../utils/s
 import { generateId, minutesToSeconds } from '../utils/time';
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
 import { playSound } from '../utils/sound';
+import { setAutostart } from '../utils/autostart';
 
 interface TimerContextType {
   configs: TimerConfig[];
@@ -37,7 +38,7 @@ type TimerAction =
 
 const initialState: TimerState & { configs: TimerConfig[]; settings: Settings; activeConfig: TimerConfig | null; warning: boolean } = {
   configs: [],
-  settings: { notificationsEnabled: true, soundEnabled: true, theme: 'system' },
+  settings: { notificationsEnabled: true, soundEnabled: true, theme: 'system', autostartEnabled: false },
   activeConfig: null,
   status: 'idle',
   currentSegmentIndex: 0,
@@ -243,6 +244,9 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const updateSettings = useCallback(async (newSettings: Partial<Settings>) => {
     const updated = { ...state.settings, ...newSettings };
     await saveSettings(updated);
+    if (newSettings.autostartEnabled !== undefined) {
+      await setAutostart(newSettings.autostartEnabled);
+    }
     dispatch({ type: 'SET_SETTINGS', payload: updated });
   }, [state.settings]);
 

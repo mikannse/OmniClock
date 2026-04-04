@@ -84,6 +84,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--minimized"]),
+        ))
         .invoke_handler(tauri::generate_handler![show_native_notification])
         .setup(|app| {
             setup_tray(app.handle())?;

@@ -16,6 +16,7 @@ export interface Settings {
   notificationsEnabled: boolean;
   soundEnabled: boolean;
   theme: 'light' | 'dark' | 'system';
+  autostartEnabled: boolean;
 }
 
 export type TimerStatus = 'idle' | 'running' | 'paused';

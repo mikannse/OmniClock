@@ -58,6 +58,25 @@ export function SettingsView() {
 
       <Separator />
 
+      {/* System */}
+      <section className="space-y-4">
+        <h3 className="text-sm font-medium">{t('settings.systemSection')}</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="autostart" className="text-sm text-muted-foreground">
+              {t('settings.autostartEnabled')}
+            </Label>
+            <Switch
+              id="autostart"
+              checked={settings.autostartEnabled}
+              onCheckedChange={(checked) => updateSettings({ autostartEnabled: checked })}
+            />
+          </div>
+        </div>
+      </section>
+
+      <Separator />
+
       {/* Theme */}
       <section className="space-y-4">
         <h3 className="text-sm font-medium">{t('settings.theme')}</h3>

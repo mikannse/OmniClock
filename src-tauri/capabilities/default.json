@@ -23,6 +23,10 @@
     "notification:allow-notify",
     "fs:default",
     "fs:allow-appdata-read-recursive",
-    "fs:allow-appdata-write-recursive"
+    "fs:allow-appdata-write-recursive",
+    "autostart:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
   ]
 }
