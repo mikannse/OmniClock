@@ -95,7 +95,9 @@
     "language": "語言",
     "selectLanguage": "選擇語言",
     "about": "關於",
-    "version": "版本"
+    "version": "版本",
+    "checkUpdate": "檢查更新",
+    "checking": "檢查中..."
   },
   "common": {
     "confirm": "確認",

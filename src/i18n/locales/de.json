@@ -95,7 +95,9 @@
     "language": "Sprache",
     "selectLanguage": "Sprache auswählen",
     "about": "Über",
-    "version": "Version"
+    "version": "Version",
+    "checkUpdate": "Nach Updates suchen",
+    "checking": "Wird geprüft..."
   },
   "common": {
     "confirm": "Bestätigen",

@@ -3,14 +3,17 @@ import i18n from '@/i18n';
 import { useTimerContext } from '../../contexts/TimerContext';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { languages, changeLanguage } from '@/i18n';
-import { Moon, Sun, Monitor } from 'lucide-react';
+import { Moon, Sun, Monitor, RefreshCw } from 'lucide-react';
 import { VERSION } from '@/utils/version';
+import { useUpdateCheck } from '@/hooks/useUpdateCheck';
 
 export function SettingsView() {
   const { t } = useTranslation();
   const { settings, updateSettings } = useTimerContext();
+  const { checking, checkForUpdates } = useUpdateCheck();
 
   return (
     <div className="space-y-8">
@@ -163,7 +166,19 @@ export function SettingsView() {
           </div>
           <div className="p-4 rounded-lg border border-border">
             <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{t('settings.version')}</div>
-            <div className="font-medium">v{VERSION}</div>
+            <div className="font-medium flex items-center justify-between">
+              <span>v{VERSION}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={checkForUpdates}
+                disabled={checking}
+                className="h-7 px-2"
+              >
+                <RefreshCw className={`h-3 w-3 mr-1 ${checking ? 'animate-spin' : ''}`} />
+                {checking ? t('settings.checking') : t('settings.checkUpdate')}
+              </Button>
+            </div>
           </div>
         </div>
       </section>

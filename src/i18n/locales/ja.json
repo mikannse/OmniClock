@@ -95,7 +95,9 @@
     "language": "言語",
     "selectLanguage": "言語を選択",
     "about": "について",
-    "version": "バージョン"
+    "version": "バージョン",
+    "checkUpdate": "更新を確認",
+    "checking": "確認中..."
   },
   "common": {
     "confirm": "確認",

@@ -95,7 +95,9 @@
     "language": "Langue",
     "selectLanguage": "Sélectionner la langue",
     "about": "À propos",
-    "version": "Version"
+    "version": "Version",
+    "checkUpdate": "Vérifier les mises à jour",
+    "checking": "Vérification..."
   },
   "common": {
     "confirm": "Confirmer",
