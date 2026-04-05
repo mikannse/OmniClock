@@ -42,7 +42,18 @@ export function useUpdateCheck() {
         });
       }
     } catch (error) {
-      console.error('Failed to check for updates:', error);
+      console.error('Failed to check for updates:', {
+        raw: error,
+        stringified: String(error),
+        ...(error instanceof Error
+          ? {
+              name: error.name,
+              message: error.message,
+              stack: error.stack,
+              cause: error.cause,
+            }
+          : {}),
+      });
       const errorMessage = String(error);
       const invalidManifest = errorMessage.includes('Could not fetch a valid release JSON from the remote');
 

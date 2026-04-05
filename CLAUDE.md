@@ -24,6 +24,9 @@ npm run tauri build
 # Frontend only (Vite)
 npm run dev
 npm run build
+
+# Update release version (run before tagging)
+npm run release:prepare -- 0.4.6
 ```
 
 ## Architecture
@@ -60,15 +63,48 @@ Each feature module is in `src/components/{Module}/`:
 
 ### Data Models (src/types/index.ts)
 ```typescript
-TimerConfig { id, name, totalMinutes, segments[], createdAt }
-TimerSegment { id, name, minutes }
-Settings { notificationsEnabled, soundEnabled, theme: 'light' | 'dark' | 'system' }
-PomodoroSettings { workMinutes, shortBreakMinutes, longBreakMinutes, longBreakInterval }
-TimerState { status, currentSegmentIndex, remainingSeconds, totalElapsedSeconds }
-PomodoroState { status: 'idle'|'working'|'shortBreak'|'longBreak', completedPomodoros, remainingSeconds, totalElapsedSeconds }
-TimerStatus = 'idle' | 'running' | 'paused'
-StopwatchLap { id, time, lapTime }
-ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings'
+interface TimerConfig {
+  id: string;
+  name: string;
+  totalMinutes: number;
+  segments: TimerSegment[];
+  createdAt: number;
+}
+interface TimerSegment {
+  id: string;
+  name: string;
+  minutes: number;
+}
+interface Settings {
+  notificationsEnabled: boolean;
+  soundEnabled: boolean;
+  theme: 'light' | 'dark' | 'system';
+}
+interface PomodoroSettings {
+  workMinutes: number;
+  shortBreakMinutes: number;
+  longBreakMinutes: number;
+  longBreakInterval: number;
+}
+interface TimerState {
+  status: TimerStatus;
+  currentSegmentIndex: number;
+  remainingSeconds: number;
+  totalElapsedSeconds: number;
+}
+interface PomodoroState {
+  status: 'idle' | 'working' | 'shortBreak' | 'longBreak';
+  completedPomodoros: number;
+  remainingSeconds: number;
+  totalElapsedSeconds: number;
+}
+type TimerStatus = 'idle' | 'running' | 'paused';
+interface StopwatchLap {
+  id: string;
+  time: number;
+  lapTime: number;
+}
+type ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings';
 ```
 
 ### Persistence (src/utils/storage.ts)
@@ -89,6 +125,9 @@ ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings'
 - `tauri-plugin-fs` - File system access for JSON persistence
 - `tauri-plugin-notification` - Desktop notifications
 - `tauri-plugin-opener` - Default opener (included in template)
+- `tauri-plugin-updater` - Auto-update via GitHub releases
+- `tauri-plugin-autostart` - Launch on system startup
+- `tauri-plugin-dialog` - Native dialogs
 
 ### System Tray (src-tauri/src/lib.rs)
 - Tray icon with context menu (Show/Hide/Start Work/Quit)
@@ -112,6 +151,7 @@ ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings'
 - Rust backend uses `#[cfg(not(mobile))]` for desktop-only code
 
 ### Tauri Capabilities (src-tauri/capabilities/default.json)
+Capabilities enable permissions for Tauri APIs:
 - `core:default`, `core:event:default`
 - `core:window:default`, `core:window:allow-minimize`, `core:window:allow-maximize`, `core:window:allow-unmaximize`, `core:window:allow-is-maximized`, `core:window:allow-start-dragging`, `core:window:allow-close`, `core:window:allow-show`, `core:window:allow-hide`, `core:window:allow-set-focus`
 - `fs:default`, `fs:allow-appdata-read-recursive`, `fs:allow-appdata-write-recursive`
@@ -146,7 +186,22 @@ ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings'
 - Button (variants: default, destructive, outline, secondary, ghost, link)
 - Label, Switch, Slider, Separator
 - All use `class-variance-authority` for variant handling
-- `cn()` utility (`src/lib/utils.ts`) combines clsx + tailwind-merge
+- `cn()` utility (`src/lib/utils.ts`) combines clsx + tailwind-merge for class merging
+
+### Commit Message Format
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+```
+<type>: <description>
+
+[optional body]
+```
+Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
+
+### Rust Backend (src-tauri/src/lib.rs)
+- System tray setup with context menu (Show/Hide/Start Work/Quit)
+- Tray icon using `tray-icon` feature
+- Emits `tray-start-work` event to frontend via Tauri events API
+- Desktop-only: all tray code wrapped in `#[cfg(not(mobile))]`
 
 ### Window Configuration
 - Default size: 900x700px
