@@ -50,7 +50,7 @@ export function useUpdateCheck() {
               name: error.name,
               message: error.message,
               stack: error.stack,
-              cause: error.cause,
+              cause: (error as Error & { cause?: unknown }).cause,
             }
           : {}),
       });
