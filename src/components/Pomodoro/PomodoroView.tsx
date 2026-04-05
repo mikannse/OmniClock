@@ -1,13 +1,13 @@
-import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
+import { Coffee, Play, RotateCcw, SkipForward, Timer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { usePomodoroContext } from '../../contexts/PomodoroContext';
-import { formatTime } from '../../utils/time';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
+import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
-import { Coffee, Play, RotateCcw, Timer, SkipForward } from 'lucide-react';
+import { usePomodoroContext } from '../../contexts/PomodoroContext';
+import { formatTime } from '../../utils/time';
 
 type ViewMode = 'timer' | 'settings';
 
@@ -27,6 +27,10 @@ export function PomodoroView() {
 
   const [viewMode, setViewMode] = useState<ViewMode>('timer');
   const [localSettings, setLocalSettings] = useState(settings);
+
+  useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
 
   const handleSaveSettings = async () => {
     await updatePomodoroSettings(localSettings);
@@ -54,10 +58,12 @@ export function PomodoroView() {
   const getNextStatusLabel = () => {
     const completed = pomodoroState.completedPomodoros;
     const isLongBreakTime = (completed + 1) % settings.longBreakInterval === 0;
+
     if (pomodoroState.status === 'idle') return t('pomodoro.startWork');
     if (pomodoroState.status === 'working') {
       return isLongBreakTime ? t('pomodoro.longBreak') : t('pomodoro.shortBreak');
     }
+
     return t('pomodoro.working');
   };
 
@@ -74,9 +80,10 @@ export function PomodoroView() {
     }
   };
 
-  const progress = pomodoroState.status !== 'idle'
-    ? ((getTotalSeconds() - pomodoroState.remainingSeconds) / getTotalSeconds()) * 100
-    : 0;
+  const progress =
+    pomodoroState.status !== 'idle'
+      ? ((getTotalSeconds() - pomodoroState.remainingSeconds) / getTotalSeconds()) * 100
+      : 0;
 
   const isWarning = pomodoroState.remainingSeconds <= 30 && pomodoroState.remainingSeconds > 0;
 
@@ -90,16 +97,17 @@ export function PomodoroView() {
           </span>
         </div>
 
-        <div className="rounded-lg border border-border p-6 space-y-6">
-          {/* Work Duration */}
+        <div className="space-y-6 rounded-lg border border-border p-6">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label>{t('pomodoro.workDuration')}</Label>
-              <span className="text-sm text-muted-foreground">{localSettings.workMinutes} {t('timer.minutes')}</span>
+              <span className="text-sm text-muted-foreground">
+                {localSettings.workMinutes} {t('timer.minutes')}
+              </span>
             </div>
             <Slider
               value={[localSettings.workMinutes]}
-              onValueChange={(val) => setLocalSettings({ ...localSettings, workMinutes: val[0] })}
+              onValueChange={(value) => setLocalSettings({ ...localSettings, workMinutes: value[0] })}
               min={1}
               max={60}
               step={1}
@@ -108,15 +116,16 @@ export function PomodoroView() {
 
           <Separator />
 
-          {/* Short Break Duration */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label>{t('pomodoro.shortBreakDuration')}</Label>
-              <span className="text-sm text-muted-foreground">{localSettings.shortBreakMinutes} {t('timer.minutes')}</span>
+              <span className="text-sm text-muted-foreground">
+                {localSettings.shortBreakMinutes} {t('timer.minutes')}
+              </span>
             </div>
             <Slider
               value={[localSettings.shortBreakMinutes]}
-              onValueChange={(val) => setLocalSettings({ ...localSettings, shortBreakMinutes: val[0] })}
+              onValueChange={(value) => setLocalSettings({ ...localSettings, shortBreakMinutes: value[0] })}
               min={1}
               max={30}
               step={1}
@@ -125,15 +134,16 @@ export function PomodoroView() {
 
           <Separator />
 
-          {/* Long Break Duration */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label>{t('pomodoro.longBreakDuration')}</Label>
-              <span className="text-sm text-muted-foreground">{localSettings.longBreakMinutes} {t('timer.minutes')}</span>
+              <span className="text-sm text-muted-foreground">
+                {localSettings.longBreakMinutes} {t('timer.minutes')}
+              </span>
             </div>
             <Slider
               value={[localSettings.longBreakMinutes]}
-              onValueChange={(val) => setLocalSettings({ ...localSettings, longBreakMinutes: val[0] })}
+              onValueChange={(value) => setLocalSettings({ ...localSettings, longBreakMinutes: value[0] })}
               min={5}
               max={60}
               step={1}
@@ -142,7 +152,6 @@ export function PomodoroView() {
 
           <Separator />
 
-          {/* Long Break Interval */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label>{t('pomodoro.longBreakInterval')}</Label>
@@ -152,7 +161,7 @@ export function PomodoroView() {
             </div>
             <Slider
               value={[localSettings.longBreakInterval]}
-              onValueChange={(val) => setLocalSettings({ ...localSettings, longBreakInterval: val[0] })}
+              onValueChange={(value) => setLocalSettings({ ...localSettings, longBreakInterval: value[0] })}
               min={2}
               max={10}
               step={1}
@@ -174,7 +183,6 @@ export function PomodoroView() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{t('pomodoro.title')}</h1>
@@ -182,79 +190,72 @@ export function PomodoroView() {
             {t('pomodoro.completed', { count: pomodoroState.completedPomodoros })}
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setViewMode('settings')}
-          disabled={isRunning}
-        >
-          <Timer className="h-4 w-4 mr-2" />
+        <Button variant="ghost" size="sm" onClick={() => setViewMode('settings')} disabled={isRunning}>
+          <Timer className="mr-2 h-4 w-4" />
           {t('pomodoro.settings')}
         </Button>
       </div>
 
-      {/* Main Timer Display */}
       <div className="rounded-lg border border-border p-6">
-        {/* Status */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-secondary text-secondary-foreground text-sm">
+        <div className="mb-6 text-center">
+          <div className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3 py-1 text-sm text-secondary-foreground">
             <Coffee className="h-4 w-4" />
             {getStatusLabel()}
           </div>
         </div>
 
-        {/* Big Timer */}
-        <div className="text-center mb-6 py-8">
+        <div className="mb-6 py-8 text-center">
           <div
             className={cn(
-              "font-mono text-7xl font-light tracking-tight tabular-nums",
-              isWarning ? "text-destructive" : "text-foreground"
+              'font-mono text-7xl font-light tracking-tight tabular-nums',
+              isWarning ? 'text-destructive' : 'text-foreground',
             )}
           >
             {formatTime(pomodoroState.remainingSeconds || settings.workMinutes * 60)}
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div className="rounded-full h-3 bg-muted overflow-hidden mb-6">
+        <div className="mb-6 h-3 overflow-hidden rounded-full bg-muted">
           <div
             className={cn(
-              "h-full rounded-full transition-all duration-300",
-              pomodoroState.status === 'working' ? "bg-primary" :
-              pomodoroState.status === 'shortBreak' ? "bg-green-500" : "bg-blue-500"
+              'h-full rounded-full transition-all duration-300',
+              pomodoroState.status === 'working'
+                ? 'bg-primary'
+                : pomodoroState.status === 'shortBreak'
+                  ? 'bg-green-500'
+                  : 'bg-blue-500',
             )}
             style={{ width: `${progress}%` }}
           />
         </div>
 
-        {/* Quick Stats */}
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{t('stopwatch.total')}: {formatTime(pomodoroState.totalElapsedSeconds)}</span>
-          <span>{t('pomodoro.workDuration')}: {getTotalSeconds() / 60} {t('timer.minutes')}</span>
+          <span>
+            {t('stopwatch.total')}: {formatTime(pomodoroState.totalElapsedSeconds)}
+          </span>
+          <span>
+            {t('pomodoro.workDuration')}: {getTotalSeconds() / 60} {t('timer.minutes')}
+          </span>
         </div>
       </div>
 
-      {/* Next Status Hint */}
       {isRunning && (
         <div className="text-center text-sm text-muted-foreground">
-          <SkipForward className="h-3 w-3 inline mr-1" />
+          <SkipForward className="mr-1 inline h-3 w-3" />
           {t('pomodoro.startNext')}: {getNextStatusLabel()}
         </div>
       )}
 
-      {/* Control Buttons */}
       <div className="flex gap-3">
         {!isRunning ? (
-          <>
-            <Button onClick={startWork} className="flex-1" size="lg">
-              <Play className="h-4 w-4 mr-2" />
-              {t('pomodoro.startWork')}
-            </Button>
-          </>
+          <Button onClick={startWork} className="flex-1" size="lg">
+            <Play className="mr-2 h-4 w-4" />
+            {t('pomodoro.startWork')}
+          </Button>
         ) : (
           <>
             <Button onClick={skip} variant="outline" size="lg" className="flex-1">
-              <SkipForward className="h-4 w-4 mr-2" />
+              <SkipForward className="mr-2 h-4 w-4" />
               {t('pomodoro.skip')}
             </Button>
             <Button onClick={startWork} variant="outline" size="lg">
@@ -273,18 +274,22 @@ export function PomodoroView() {
         )}
       </div>
 
-      {/* Tips */}
       <div className="rounded-lg border border-border p-4">
-        <div className="flex items-center gap-3 mb-2">
+        <div className="mb-2 flex items-center gap-3">
           <div className="h-px w-6 bg-border" />
           <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
             {t('pomodoro.tips.title')}
           </span>
         </div>
-        <ul className="text-sm text-muted-foreground space-y-1.5 mt-3">
+        <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
           <li>• {t('pomodoro.tips.work', { minutes: settings.workMinutes })}</li>
           <li>• {t('pomodoro.tips.shortBreak', { minutes: settings.shortBreakMinutes })}</li>
-          <li>• {t('pomodoro.tips.longBreak', { count: settings.longBreakInterval, minutes: settings.longBreakMinutes })}</li>
+          <li>
+            • {t('pomodoro.tips.longBreak', {
+              count: settings.longBreakInterval,
+              minutes: settings.longBreakMinutes,
+            })}
+          </li>
           <li>• {t('pomodoro.tips.autoSwitch')}</li>
         </ul>
       </div>

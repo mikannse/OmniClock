@@ -16,30 +16,33 @@
     "pause": "暂停",
     "resume": "继续",
     "reset": "重置",
-    "next": "下一段",
-    "configName": "配置名称",
+    "configName": "配置",
+    "configCount": "{{count}} 个配置",
+    "segmentCount": "{{count}} 个分段",
     "totalTime": "总时长",
     "segments": "分段",
     "addSegment": "添加分段",
     "segmentName": "分段名称",
     "minutes": "分钟",
-    "createConfig": "创建配置",
-    "deleteConfig": "删除",
-    "noConfigs": "暂无配置"
+    "createConfig": "新建配置",
+    "deleteConfirm": "确定删除“{{name}}”吗？",
+    "noConfigs": "还没有计时配置",
+    "remaining": "剩余",
+    "overview": "概览",
+    "notifications": {
+      "segmentCompleteTitle": "“{{segment}}”时间到",
+      "segmentCompleteBody": "下一项：{{segment}}",
+      "completeTitle": "计时结束",
+      "completeBody": "所有分段都已完成。"
+    }
   },
   "pomodoro": {
     "title": "番茄钟",
     "completed": "已完成 {{count}} 个番茄钟",
     "startWork": "开始专注",
-    "working": "专注工作中",
+    "working": "专注中",
     "shortBreak": "短休息",
     "longBreak": "长休息",
-    "breakFinished": "休息结束！",
-    "workFinished": "番茄钟完成！",
-    "startNext": "开始下一个番茄钟！",
-    "takeBreak": "休息一下，准备下一个！",
-    "takeLongBreak": "开始长休息吧！",
-    "newRound": "开始新的番茄钟！",
     "settings": "设置",
     "workDuration": "工作时长",
     "shortBreakDuration": "短休息时长",
@@ -55,15 +58,26 @@
       "work": "专注工作 {{minutes}} 分钟",
       "shortBreak": "短休息 {{minutes}} 分钟",
       "longBreak": "每 {{count}} 个番茄钟后长休息 {{minutes}} 分钟",
-      "autoSwitch": "时间到会自动切换到下一个状态"
-    }
+      "autoSwitch": "时间结束后自动切换到下一个状态"
+    },
+    "notifications": {
+      "workFinishedTitle": "番茄钟完成",
+      "shortBreakBody": "休息一下，准备下一个阶段。",
+      "longBreakBody": "开始长休息吧。",
+      "breakFinishedTitle": "休息结束",
+      "breakFinishedBody": "开始下一轮专注。",
+      "longBreakFinishedTitle": "长休息结束",
+      "longBreakFinishedBody": "开始新的番茄钟。"
+    },
+    "startNext": "下一阶段"
   },
   "stopwatch": {
     "title": "秒表",
     "lap": "计次",
+    "lapTime": "单圈",
     "reset": "重置",
-    "total": "总计",
-    "lapNumber": "第 {{count}} 次",
+    "total": "累计",
+    "lapNumber": "第 {{count}} 圈",
     "noLaps": "暂无计次记录"
   },
   "countdown": {
@@ -73,25 +87,29 @@
     "resume": "继续",
     "reset": "重置",
     "setTime": "设置时间",
-    "hours": "时",
-    "minutes": "分",
-    "seconds": "秒"
+    "directInput": "直接输入",
+    "hours": "小时",
+    "minutes": "分钟",
+    "seconds": "秒",
+    "presetMinutes": "{{count}} 分钟",
+    "presetHours": "{{count}} 小时"
   },
   "settings": {
     "title": "设置",
-    "subtitle": "自定义您的时钟应用体验",
+    "subtitle": "自定义你的时钟体验",
     "notifications": "通知",
     "notificationsEnabled": "启用通知",
-    "sound": "提示音",
-    "soundEnabled": "启用提示音",
+    "sound": "声音",
+    "soundEnabled": "启用声音",
     "system": "跟随系统",
     "systemSection": "系统",
-    "autostartEnabled": "开机自启动",
-    "closeToTray": "关闭时最小化到托盘",
+    "autostartEnabled": "开机启动",
+    "closeToTray": "关闭时隐藏到托盘",
+    "closeToTrayHintTitle": "已开启托盘隐藏",
+    "closeToTrayHintBody": "如需彻底退出，请在系统托盘菜单中选择退出。",
     "theme": "主题",
     "light": "浅色",
     "dark": "深色",
-    "systemTheme": "跟随系统",
     "language": "语言",
     "selectLanguage": "选择语言",
     "about": "关于",
@@ -99,11 +117,41 @@
     "checkUpdate": "检查更新",
     "checking": "检查中..."
   },
+  "window": {
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "还原",
+    "close": "关闭"
+  },
+  "tray": {
+    "show": "显示窗口",
+    "hide": "隐藏窗口",
+    "startWork": "开始专注",
+    "quit": "退出",
+    "tooltip": "Omni Clock"
+  },
+  "updater": {
+    "availableTitle": "发现新版本",
+    "availableBody": "检测到 {{version}} 版本，是否立即下载并安装？",
+    "noUpdateTitle": "已是最新版本",
+    "noUpdateBody": "当前已经是最新版本。",
+    "errorTitle": "更新检查失败",
+    "errorBody": "检查更新失败：{{error}}",
+    "manifestMissingTitle": "更新清单不可用",
+    "manifestMissingBody": "发布服务器当前没有提供有效的 latest.json。请在生成更新产物后重新发布一个带签名的新版本。"
+  },
   "common": {
     "confirm": "确认",
     "cancel": "取消",
     "delete": "删除",
     "edit": "编辑",
-    "save": "保存"
+    "save": "保存",
+    "ready": "就绪",
+    "running": "运行中",
+    "paused": "已暂停",
+    "complete": "已完成",
+    "hourShort": "时",
+    "minuteShort": "分",
+    "minuteShortUpper": "分"
   }
 }

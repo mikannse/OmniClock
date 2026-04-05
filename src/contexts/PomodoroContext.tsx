@@ -1,7 +1,10 @@
-import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef, useState } from 'react';
+﻿import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
+import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
+import { useTranslation } from 'react-i18next';
 import type { PomodoroSettings, PomodoroState } from '../types';
+import { useTimerContext } from './TimerContext';
+import { playSound } from '../utils/sound';
 import { loadPomodoroSettings, savePomodoroSettings } from '../utils/storage';
-import { invoke } from '@tauri-apps/api/core';
 
 type PomodoroStatus = 'idle' | 'working' | 'shortBreak' | 'longBreak';
 
@@ -47,7 +50,9 @@ function pomodoroReducer(state: PomodoroState, action: PomodoroAction): Pomodoro
         totalElapsedSeconds: 0,
       };
     case 'TICK':
-      if (state.remainingSeconds <= 0) return state;
+      if (state.remainingSeconds <= 0) {
+        return state;
+      }
       return {
         ...state,
         remainingSeconds: state.remainingSeconds - 1,
@@ -65,14 +70,14 @@ function pomodoroReducer(state: PomodoroState, action: PomodoroAction): Pomodoro
 const PomodoroContext = createContext<PomodoroContextType | null>(null);
 
 export function PomodoroProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
+  const { settings: appSettings } = useTimerContext();
   const [settings, setSettings] = useState<PomodoroSettings>(defaultSettings);
   const [state, dispatch] = useReducer(pomodoroReducer, initialState);
   const intervalRef = useRef<number | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
   const statusRef = useRef<PomodoroStatus>('idle');
   const completedRef = useRef(0);
   const settingsRef = useRef(settings);
-  const showNotificationRef = useRef<(title: string, body: string) => void>(() => {});
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -87,166 +92,162 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   }, [state.completedPomodoros]);
 
   useEffect(() => {
-    loadPomodoroSettings().then(setSettings);
+    void loadPomodoroSettings().then(setSettings).catch(console.error);
   }, []);
 
   useEffect(() => {
-    const isActive = statusRef.current !== 'idle';
-    if (isActive) {
+    if (state.status !== 'idle') {
       intervalRef.current = window.setInterval(() => {
         dispatch({ type: 'TICK' });
       }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
+
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
     };
-  }, [state.status, settings]);
+  }, [state.status]);
 
-  const playSound = useCallback(async (soundType: 'timerStart' | 'timerEnd' = 'timerEnd') => {
-    try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext();
-      }
-      const ctx = audioContextRef.current;
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
+  const playPomodoroSound = useCallback(
+    (type: 'timerStart' | 'timerEnd') => {
+      void playSound(type, appSettings.soundEnabled);
+    },
+    [appSettings.soundEnabled],
+  );
 
-      if (soundType === 'timerStart') {
-        // Short ascending chirp (400Hz → 600Hz)
-        oscillator.frequency.setValueAtTime(400, ctx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.1);
-        oscillator.type = 'sine';
-        gainNode.gain.setValueAtTime(0.25, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
-        oscillator.start(ctx.currentTime);
-        oscillator.stop(ctx.currentTime + 0.15);
-      } else {
-        // Original timer end sound (800Hz)
-        oscillator.frequency.value = 800;
-        oscillator.type = 'sine';
-        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-        oscillator.start(ctx.currentTime);
-        oscillator.stop(ctx.currentTime + 0.5);
-      }
-    } catch (e) {
-      console.error('Failed to play sound:', e);
-    }
-  }, []);
-
-  const showNotification = useCallback(async (title: string, body: string) => {
-    // Try browser notification first (works in dev mode)
-    if ('Notification' in window) {
-      if (Notification.permission === 'granted') {
-        new Notification(title, { body, icon: '/favicon.ico' });
+  const showNotification = useCallback(
+    async (title: string, body: string) => {
+      if (!appSettings.notificationsEnabled) {
         return;
-      } else if (Notification.permission !== 'denied') {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-          new Notification(title, { body, icon: '/favicon.ico' });
-          return;
-        }
       }
-    }
 
-    // Fallback to Tauri native notification (better for background)
-    try {
-      await invoke('show_native_notification', {
-        title,
-        body,
-      });
-    } catch (e) {
-      console.error('Failed to show notification:', e);
-    }
-  }, []);
+      try {
+        let permissionGranted = await isPermissionGranted();
+        if (!permissionGranted) {
+          permissionGranted = (await requestPermission()) === 'granted';
+        }
 
-  // Keep ref updated with latest showNotification
-  useEffect(() => {
-    showNotificationRef.current = showNotification;
-  }, [showNotification]);
+        if (permissionGranted) {
+          sendNotification({ title, body });
+        }
+      } catch (error) {
+        console.error('Failed to show notification:', error);
+      }
+    },
+    [appSettings.notificationsEnabled],
+  );
 
-  const autoTransitionRef = useRef<() => void>(() => {
+  const autoTransition = useCallback(() => {
     const currentSettings = settingsRef.current;
     const currentStatus = statusRef.current;
     const currentCompleted = completedRef.current;
 
     if (currentStatus === 'working') {
-      const newCompleted = currentCompleted + 1;
-      dispatch({ type: 'SET_COMPLETED', payload: { count: newCompleted } });
+      const nextCompleted = currentCompleted + 1;
+      dispatch({ type: 'SET_COMPLETED', payload: { count: nextCompleted } });
 
-      if (newCompleted % currentSettings.longBreakInterval === 0) {
-        dispatch({ type: 'START', payload: { status: 'longBreak', seconds: currentSettings.longBreakMinutes * 60 } });
+      if (nextCompleted % currentSettings.longBreakInterval === 0) {
+        dispatch({
+          type: 'START',
+          payload: { status: 'longBreak', seconds: currentSettings.longBreakMinutes * 60 },
+        });
         statusRef.current = 'longBreak';
-        showNotificationRef.current('番茄钟完成！', '开始长休息吧！');
+        void showNotification(
+          t('pomodoro.notifications.workFinishedTitle'),
+          t('pomodoro.notifications.longBreakBody'),
+        );
       } else {
-        dispatch({ type: 'START', payload: { status: 'shortBreak', seconds: currentSettings.shortBreakMinutes * 60 } });
+        dispatch({
+          type: 'START',
+          payload: { status: 'shortBreak', seconds: currentSettings.shortBreakMinutes * 60 },
+        });
         statusRef.current = 'shortBreak';
-        showNotificationRef.current('番茄钟完成！', '休息一下，准备下一个！');
+        void showNotification(
+          t('pomodoro.notifications.workFinishedTitle'),
+          t('pomodoro.notifications.shortBreakBody'),
+        );
       }
-    } else if (currentStatus === 'shortBreak') {
-      dispatch({ type: 'START', payload: { status: 'working', seconds: currentSettings.workMinutes * 60 } });
-      statusRef.current = 'working';
-      showNotificationRef.current('休息结束！', '开始下一个番茄钟！');
-    } else if (currentStatus === 'longBreak') {
-      dispatch({ type: 'START', payload: { status: 'working', seconds: currentSettings.workMinutes * 60 } });
-      statusRef.current = 'working';
-      showNotificationRef.current('长休息结束！', '开始新的番茄钟！');
+      return;
     }
-  });
+
+    if (currentStatus === 'shortBreak') {
+      dispatch({
+        type: 'START',
+        payload: { status: 'working', seconds: currentSettings.workMinutes * 60 },
+      });
+      statusRef.current = 'working';
+      void showNotification(
+        t('pomodoro.notifications.breakFinishedTitle'),
+        t('pomodoro.notifications.breakFinishedBody'),
+      );
+      return;
+    }
+
+    if (currentStatus === 'longBreak') {
+      dispatch({
+        type: 'START',
+        payload: { status: 'working', seconds: currentSettings.workMinutes * 60 },
+      });
+      statusRef.current = 'working';
+      void showNotification(
+        t('pomodoro.notifications.longBreakFinishedTitle'),
+        t('pomodoro.notifications.longBreakFinishedBody'),
+      );
+    }
+  }, [showNotification, t]);
 
   useEffect(() => {
     if (state.remainingSeconds === 0 && state.status !== 'idle' && state.totalElapsedSeconds > 0) {
-      playSound();
-      setTimeout(() => {
-        autoTransitionRef.current();
+      playPomodoroSound('timerEnd');
+      const timeoutId = window.setTimeout(() => {
+        autoTransition();
       }, 100);
-    }
-  }, [state.remainingSeconds, state.status, state.totalElapsedSeconds, playSound]);
 
-  const updatePomodoroSettings = useCallback(async (newSettings: Partial<PomodoroSettings>) => {
-    const updated = { ...settings, ...newSettings };
-    setSettings(updated);
-    await savePomodoroSettings(updated);
-  }, [settings]);
+      return () => window.clearTimeout(timeoutId);
+    }
+
+    return undefined;
+  }, [autoTransition, playPomodoroSound, state.remainingSeconds, state.status, state.totalElapsedSeconds]);
+
+  const updatePomodoroSettings = useCallback(
+    async (newSettings: Partial<PomodoroSettings>) => {
+      const updated = { ...settings, ...newSettings };
+      setSettings(updated);
+      await savePomodoroSettings(updated);
+    },
+    [settings],
+  );
 
   const startWork = useCallback(() => {
-    const seconds = settings.workMinutes * 60;
-    dispatch({ type: 'START', payload: { status: 'working', seconds } });
+    dispatch({ type: 'START', payload: { status: 'working', seconds: settings.workMinutes * 60 } });
     statusRef.current = 'working';
-    playSound('timerStart');
-  }, [settings.workMinutes]);
+    playPomodoroSound('timerStart');
+  }, [playPomodoroSound, settings.workMinutes]);
 
   const startShortBreak = useCallback(() => {
-    const seconds = settings.shortBreakMinutes * 60;
-    dispatch({ type: 'START', payload: { status: 'shortBreak', seconds } });
+    dispatch({ type: 'START', payload: { status: 'shortBreak', seconds: settings.shortBreakMinutes * 60 } });
     statusRef.current = 'shortBreak';
-    playSound('timerStart');
-  }, [settings.shortBreakMinutes]);
+    playPomodoroSound('timerStart');
+  }, [playPomodoroSound, settings.shortBreakMinutes]);
 
   const startLongBreak = useCallback(() => {
-    const seconds = settings.longBreakMinutes * 60;
-    dispatch({ type: 'START', payload: { status: 'longBreak', seconds } });
+    dispatch({ type: 'START', payload: { status: 'longBreak', seconds: settings.longBreakMinutes * 60 } });
     statusRef.current = 'longBreak';
-    playSound('timerStart');
-  }, [settings.longBreakMinutes]);
+    playPomodoroSound('timerStart');
+  }, [playPomodoroSound, settings.longBreakMinutes]);
 
   const skip = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    autoTransitionRef.current();
-  }, []);
+    autoTransition();
+  }, [autoTransition]);
 
   const reset = useCallback(() => {
     if (intervalRef.current) {
@@ -283,5 +284,6 @@ export function usePomodoroContext() {
   if (!context) {
     throw new Error('usePomodoroContext must be used within a PomodoroProvider');
   }
+
   return context;
 }

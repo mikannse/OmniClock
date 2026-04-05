@@ -16,35 +16,38 @@
     "pause": "Pause",
     "resume": "Fortsetzen",
     "reset": "Zurücksetzen",
-    "next": "Weiter",
-    "configName": "Konfig-Name",
+    "configName": "Konfiguration",
+    "configCount": "{{count}} Konfigurationen",
+    "segmentCount": "{{count}} Segmente",
     "totalTime": "Gesamtzeit",
     "segments": "Segmente",
     "addSegment": "Segment hinzufügen",
     "segmentName": "Segmentname",
     "minutes": "Minuten",
-    "createConfig": "Konfig erstellen",
-    "deleteConfig": "Löschen",
-    "noConfigs": "Keine Konfigs"
+    "createConfig": "Konfiguration erstellen",
+    "deleteConfirm": "„{{name}}“ löschen?",
+    "noConfigs": "Noch keine Timer-Konfigurationen",
+    "remaining": "Verbleibend",
+    "overview": "Übersicht",
+    "notifications": {
+      "segmentCompleteTitle": "„{{segment}}“ beendet",
+      "segmentCompleteBody": "Als Nächstes: {{segment}}",
+      "completeTitle": "Timer beendet",
+      "completeBody": "Alle Segmente sind abgeschlossen."
+    }
   },
   "pomodoro": {
     "title": "Pomodoro",
     "completed": "{{count}} Pomodoros abgeschlossen",
     "startWork": "Fokus starten",
-    "working": "Fokussiert",
+    "working": "Im Fokus",
     "shortBreak": "Kurze Pause",
     "longBreak": "Lange Pause",
-    "breakFinished": "Pause beendet!",
-    "workFinished": "Pomodoro abgeschlossen!",
-    "startNext": "Nächsten Pomodoro starten!",
-    "takeBreak": "Mach eine Pause, mach dich bereit für den nächsten!",
-    "takeLongBreak": "Zeit für eine lange Pause!",
-    "newRound": "Neuen Pomodoro starten!",
     "settings": "Einstellungen",
     "workDuration": "Arbeitszeit",
     "shortBreakDuration": "Kurze Pause",
     "longBreakDuration": "Lange Pause",
-    "longBreakInterval": "Lange-Pause-Intervall",
+    "longBreakInterval": "Intervall für lange Pause",
     "pomodorosBeforeLong": "Alle {{count}} Pomodoros",
     "save": "Speichern",
     "cancel": "Abbrechen",
@@ -55,12 +58,23 @@
       "work": "{{minutes}} Minuten fokussiert arbeiten",
       "shortBreak": "{{minutes}} Minuten kurze Pause",
       "longBreak": "{{minutes}} Minuten lange Pause nach {{count}} Pomodoros",
-      "autoSwitch": "Wechselt automatisch zum nächsten Status"
-    }
+      "autoSwitch": "Wechselt automatisch in den nächsten Zustand"
+    },
+    "notifications": {
+      "workFinishedTitle": "Pomodoro beendet",
+      "shortBreakBody": "Mach eine kurze Pause und sammle dich.",
+      "longBreakBody": "Zeit für eine lange Pause.",
+      "breakFinishedTitle": "Pause beendet",
+      "breakFinishedBody": "Starte die nächste Fokusphase.",
+      "longBreakFinishedTitle": "Lange Pause beendet",
+      "longBreakFinishedBody": "Starte einen neuen Pomodoro."
+    },
+    "startNext": "Nächster Schritt"
   },
   "stopwatch": {
     "title": "Stoppuhr",
     "lap": "Runde",
+    "lapTime": "Rundenzeit",
     "reset": "Zurücksetzen",
     "total": "Gesamt",
     "lapNumber": "Runde {{count}}",
@@ -73,37 +87,71 @@
     "resume": "Fortsetzen",
     "reset": "Zurücksetzen",
     "setTime": "Zeit einstellen",
+    "directInput": "Direkte Eingabe",
     "hours": "Stunden",
     "minutes": "Minuten",
-    "seconds": "Sekunden"
+    "seconds": "Sekunden",
+    "presetMinutes": "{{count}} Min",
+    "presetHours": "{{count}} Std"
   },
   "settings": {
     "title": "Einstellungen",
-    "subtitle": "Passen Sie Ihre Uhr-App an",
+    "subtitle": "Passe dein Uhrenerlebnis an",
     "notifications": "Benachrichtigungen",
     "notificationsEnabled": "Benachrichtigungen aktivieren",
     "sound": "Ton",
     "soundEnabled": "Ton aktivieren",
     "system": "System",
     "systemSection": "System",
-    "autostartEnabled": "Mit System starten",
-    "closeToTray": "Beim Schließen in die Taskleiste minimieren",
+    "autostartEnabled": "Beim Start des Systems öffnen",
+    "closeToTray": "Beim Schließen in den Tray ausblenden",
+    "closeToTrayHintTitle": "Tray-Modus aktiviert",
+    "closeToTrayHintBody": "Zum vollständigen Beenden bitte im Tray-Menü „Beenden“ wählen.",
     "theme": "Design",
     "light": "Hell",
     "dark": "Dunkel",
-    "systemTheme": "System",
     "language": "Sprache",
-    "selectLanguage": "Sprache auswählen",
+    "selectLanguage": "Sprache wählen",
     "about": "Über",
     "version": "Version",
     "checkUpdate": "Nach Updates suchen",
-    "checking": "Wird geprüft..."
+    "checking": "Prüfe..."
+  },
+  "window": {
+    "minimize": "Minimieren",
+    "maximize": "Maximieren",
+    "restore": "Wiederherstellen",
+    "close": "Schließen"
+  },
+  "tray": {
+    "show": "Fenster anzeigen",
+    "hide": "Fenster ausblenden",
+    "startWork": "Fokus starten",
+    "quit": "Beenden",
+    "tooltip": "Omni Clock"
+  },
+  "updater": {
+    "availableTitle": "Update verfügbar",
+    "availableBody": "Version {{version}} ist verfügbar. Jetzt herunterladen und installieren?",
+    "noUpdateTitle": "Aktuell",
+    "noUpdateBody": "Du verwendest bereits die neueste Version.",
+    "errorTitle": "Update-Prüfung fehlgeschlagen",
+    "errorBody": "Updates konnten nicht geprüft werden: {{error}}",
+    "manifestMissingTitle": "Update-Manifest nicht verfügbar",
+    "manifestMissingBody": "Der Release-Server liefert derzeit kein gültiges latest.json. Veröffentliche nach dem Erzeugen der Update-Artefakte eine neue signierte Version."
   },
   "common": {
     "confirm": "Bestätigen",
     "cancel": "Abbrechen",
     "delete": "Löschen",
     "edit": "Bearbeiten",
-    "save": "Speichern"
+    "save": "Speichern",
+    "ready": "Bereit",
+    "running": "Läuft",
+    "paused": "Pausiert",
+    "complete": "Fertig",
+    "hourShort": "Std",
+    "minuteShort": "Min",
+    "minuteShortUpper": "MIN"
   }
 }

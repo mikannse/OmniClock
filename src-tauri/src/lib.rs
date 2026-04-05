@@ -1,73 +1,93 @@
+﻿use serde::Deserialize;
 use tauri::{
-    Manager,
     menu::{Menu, MenuItem},
-    tray::{TrayIcon, TrayIconBuilder, MouseButton, TrayIconEvent},
-    Emitter,
+    tray::{MouseButton, TrayIcon, TrayIconBuilder, TrayIconEvent},
+    AppHandle, Emitter, Manager,
 };
-use tauri_plugin_notification::NotificationExt;
+
+const TRAY_ID: &str = "main-tray";
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TrayLabels {
+    show: String,
+    hide: String,
+    start_work: String,
+    quit: String,
+    tooltip: String,
+}
+
+fn default_tray_labels() -> TrayLabels {
+    TrayLabels {
+        show: "Show window".into(),
+        hide: "Hide window".into(),
+        start_work: "Start focus".into(),
+        quit: "Quit".into(),
+        tooltip: "Omni Clock".into(),
+    }
+}
+
+fn create_tray_menu(app: &AppHandle, labels: &TrayLabels) -> Result<Menu<tauri::Wry>, tauri::Error> {
+    let show_item = MenuItem::with_id(app, "show", &labels.show, true, None::<&str>)?;
+    let hide_item = MenuItem::with_id(app, "hide", &labels.hide, true, None::<&str>)?;
+    let separator = MenuItem::with_id(app, "sep", "---", false, None::<&str>)?;
+    let start_work_item = MenuItem::with_id(app, "start_work", &labels.start_work, true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit", &labels.quit, true, None::<&str>)?;
+
+    Menu::with_items(app, &[&show_item, &hide_item, &separator, &start_work_item, &quit_item])
+}
 
 #[tauri::command]
-async fn show_native_notification(
-    app: tauri::AppHandle,
-    title: String,
-    body: String,
-) -> Result<(), String> {
-    app.notification()
-        .builder()
-        .title(&title)
-        .body(&body)
-        .show()
-        .map_err(|e: tauri_plugin_notification::Error| e.to_string())?;
+fn update_tray_labels(app: AppHandle, labels: TrayLabels) -> Result<(), String> {
+    let tray = app
+        .tray_by_id(TRAY_ID)
+        .ok_or_else(|| "tray not found".to_string())?;
+    let menu = create_tray_menu(&app, &labels).map_err(|error| error.to_string())?;
+
+    tray.set_menu(Some(menu)).map_err(|error| error.to_string())?;
+    tray.set_tooltip(Some(labels.tooltip.as_str()))
+        .map_err(|error| error.to_string())?;
 
     Ok(())
 }
 
-fn create_tray_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error> {
-    let show_i = MenuItem::with_id(app, "show", "Show Window", true, None::<&str>)?;
-    let hide_i = MenuItem::with_id(app, "hide", "Hide Window", true, None::<&str>)?;
-    let separator = MenuItem::with_id(app, "sep", "---", false, None::<&str>)?;
-    let start_work = MenuItem::with_id(app, "start_work", "Start Work (Pomodoro)", true, None::<&str>)?;
-    let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+fn setup_tray(app: &AppHandle) -> Result<TrayIcon, tauri::Error> {
+    let labels = default_tray_labels();
+    let menu = create_tray_menu(app, &labels)?;
 
-    Menu::with_items(app, &[&show_i, &hide_i, &separator, &start_work, &quit_i])
-}
-
-fn setup_tray(app: &tauri::AppHandle) -> Result<TrayIcon, tauri::Error> {
-    let menu = create_tray_menu(app)?;
-
-    TrayIconBuilder::new()
+    TrayIconBuilder::with_id(TRAY_ID)
         .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
-        .tooltip("Omni Clock")
+        .tooltip(&labels.tooltip)
         .show_menu_on_left_click(false)
-        .on_menu_event(|app, event| {
-            match event.id.as_ref() {
-                "show" => {
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "show" => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
                 }
-                "hide" => {
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.hide();
-                    }
-                }
-                "start_work" => {
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
-                    let _ = app.emit("tray-start-work", ());
-                }
-                "quit" => {
-                    app.exit(0);
-                }
-                _ => {}
             }
+            "hide" => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
+            "start_work" => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+                let _ = app.emit("tray-start-work", ());
+            }
+            "quit" => app.exit(0),
+            _ => {}
         })
         .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                ..
+            } = event
+            {
                 let app = tray.app_handle();
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
@@ -90,7 +110,7 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![show_native_notification])
+        .invoke_handler(tauri::generate_handler![update_tray_labels])
         .setup(|app| {
             setup_tray(app.handle())?;
 
@@ -99,6 +119,7 @@ pub fn run() {
                 let window = app.get_webview_window("main").unwrap();
                 window.open_devtools();
             }
+
             Ok(())
         })
         .run(tauri::generate_context!())

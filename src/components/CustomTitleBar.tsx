@@ -1,13 +1,19 @@
-import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { Minus, Square, X, Copy } from 'lucide-react';
+import { Copy, Minus, Square, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { useTimerContext } from '../contexts/TimerContext';
 
 export function CustomTitleBar() {
+  const { t } = useTranslation();
   const [isMaximized, setIsMaximized] = useState(false);
   const appWindow = getCurrentWindow();
   const { settings } = useTimerContext();
+
+  useEffect(() => {
+    void appWindow.isMaximized().then(setIsMaximized).catch(console.error);
+  }, [appWindow]);
 
   const handleMinimize = () => appWindow.minimize();
 
@@ -16,74 +22,60 @@ export function CustomTitleBar() {
     if (maximized) {
       await appWindow.unmaximize();
       setIsMaximized(false);
-    } else {
-      await appWindow.maximize();
-      setIsMaximized(true);
+      return;
     }
+
+    await appWindow.maximize();
+    setIsMaximized(true);
   };
 
   const handleClose = () => {
     if (settings.closeToTray) {
-      appWindow.hide();
-    } else {
-      appWindow.close();
+      void appWindow.hide();
+      return;
     }
+    void appWindow.close();
   };
 
   return (
     <div
       data-tauri-drag-region
-      className="h-9 bg-background border-b border-border flex items-center justify-between select-none shrink-0"
+      className="flex h-9 shrink-0 select-none items-center justify-between border-b border-border bg-background"
     >
-      {/* App title */}
-      <div
-        data-tauri-drag-region
-        className="flex items-center gap-2 px-3 flex-1 h-full"
-      >
-        <span className="text-sm font-medium text-foreground/80">Omni Clock</span>
+      <div data-tauri-drag-region className="flex h-full flex-1 items-center gap-2 px-3">
+        <span className="text-sm font-medium text-foreground/80">{t('app.name')}</span>
       </div>
 
-      {/* Window controls */}
-      <div className="flex items-center h-full">
-        {/* Minimize */}
+      <div className="flex h-full items-center">
         <button
           onClick={handleMinimize}
           className={cn(
-            'h-full px-4 flex items-center justify-center',
-            'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-            'transition-colors duration-150 button-scale'
+            'button-scale flex h-full items-center justify-center px-4',
+            'text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-accent-foreground',
           )}
-          aria-label="Minimize"
+          aria-label={t('window.minimize')}
         >
           <Minus className="h-4 w-4" />
         </button>
 
-        {/* Maximize/Restore */}
         <button
           onClick={handleMaximize}
           className={cn(
-            'h-full px-4 flex items-center justify-center',
-            'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-            'transition-colors duration-150 button-scale'
+            'button-scale flex h-full items-center justify-center px-4',
+            'text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-accent-foreground',
           )}
-          aria-label={isMaximized ? 'Restore' : 'Maximize'}
+          aria-label={isMaximized ? t('window.restore') : t('window.maximize')}
         >
-          {isMaximized ? (
-            <Copy className="h-3.5 w-3.5" />
-          ) : (
-            <Square className="h-3.5 w-3.5" />
-          )}
+          {isMaximized ? <Copy className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
         </button>
 
-        {/* Close */}
         <button
           onClick={handleClose}
           className={cn(
-            'h-full px-4 flex items-center justify-center',
-            'text-muted-foreground hover:bg-destructive hover:text-destructive-foreground',
-            'transition-colors duration-150 button-scale'
+            'button-scale flex h-full items-center justify-center px-4',
+            'text-muted-foreground transition-colors duration-150 hover:bg-destructive hover:text-destructive-foreground',
           )}
-          aria-label="Close"
+          aria-label={t('window.close')}
         >
           <X className="h-4 w-4" />
         </button>

@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
-import { check } from '@tauri-apps/plugin-updater';
+﻿import { useCallback, useState } from 'react';
 import { ask, message } from '@tauri-apps/plugin-dialog';
+import { check } from '@tauri-apps/plugin-updater';
+import { useTranslation } from 'react-i18next';
 
 interface UpdateInfo {
   available: boolean;
@@ -9,11 +10,13 @@ interface UpdateInfo {
 }
 
 export function useUpdateCheck() {
+  const { t } = useTranslation();
   const [checking, setChecking] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
 
   const checkForUpdates = useCallback(async () => {
     setChecking(true);
+
     try {
       const update = await check();
       if (update?.available) {
@@ -22,24 +25,38 @@ export function useUpdateCheck() {
           version: update.version,
           body: update.body,
         });
+
         const confirmed = await ask(
-          `Version ${update.version} is available. Would you like to download and install it now?`,
-          { title: 'Update Available', kind: 'info' }
+          t('updater.availableBody', { version: update.version }),
+          { title: t('updater.availableTitle'), kind: 'info' },
         );
+
         if (confirmed) {
           await update.downloadAndInstall();
         }
       } else {
         setUpdateInfo({ available: false });
-        await message('You are using the latest version.', { title: 'No Update Available', kind: 'info' });
+        await message(t('updater.noUpdateBody'), {
+          title: t('updater.noUpdateTitle'),
+          kind: 'info',
+        });
       }
     } catch (error) {
       console.error('Failed to check for updates:', error);
-      await message(`Failed to check for updates: ${error}`, { title: 'Error', kind: 'error' });
+      const errorMessage = String(error);
+      const invalidManifest = errorMessage.includes('Could not fetch a valid release JSON from the remote');
+
+      await message(
+        invalidManifest ? t('updater.manifestMissingBody') : t('updater.errorBody', { error: errorMessage }),
+        {
+          title: invalidManifest ? t('updater.manifestMissingTitle') : t('updater.errorTitle'),
+          kind: 'error',
+        },
+      );
     } finally {
       setChecking(false);
     }
-  }, []);
+  }, [t]);
 
   return { checking, updateInfo, checkForUpdates };
 }

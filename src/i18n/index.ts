@@ -1,4 +1,5 @@
-import i18n from 'i18next';
+﻿import i18n from 'i18next';
+import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
 
 import en from './locales/en.json';
@@ -17,9 +18,8 @@ export const languages = [
   { code: 'de', name: 'German', nativeName: 'Deutsch' },
 ];
 
-const savedLanguage = localStorage.getItem('language') || 'zh';
-
 i18n
+  .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources: {
@@ -30,8 +30,13 @@ i18n
       fr: { translation: fr },
       de: { translation: de },
     },
-    lng: savedLanguage,
+    supportedLngs: languages.map((lang) => lang.code),
     fallbackLng: 'en',
+    detection: {
+      order: ['localStorage', 'navigator'],
+      caches: ['localStorage'],
+      lookupLocalStorage: 'language',
+    },
     interpolation: {
       escapeValue: false,
     },
@@ -39,7 +44,7 @@ i18n
 
 export const changeLanguage = (code: string) => {
   localStorage.setItem('language', code);
-  i18n.changeLanguage(code);
+  void i18n.changeLanguage(code);
 };
 
 export default i18n;

@@ -21,11 +21,17 @@ jobs:
       - name: Verify versions match
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          TAURI_VERSION=$(grep '"version"' src-tauri/tauri.conf.json | sed 's/.*"version": *"\([^"]*\)".*/\1/')
+          TAURI_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('./src-tauri/tauri.conf.json', 'utf8')).version")
+          CREATE_UPDATER_ARTIFACTS=$(node -p "JSON.parse(require('fs').readFileSync('./src-tauri/tauri.conf.json', 'utf8')).bundle.createUpdaterArtifacts === true ? 'true' : 'false'")
           echo "package.json version: $PACKAGE_VERSION"
           echo "tauri.conf.json version: $TAURI_VERSION"
+          echo "createUpdaterArtifacts: $CREATE_UPDATER_ARTIFACTS"
           if [ "$PACKAGE_VERSION" != "$TAURI_VERSION" ]; then
             echo "ERROR: Version mismatch!"
+            exit 1
+          fi
+          if [ "$CREATE_UPDATER_ARTIFACTS" != "true" ]; then
+            echo "ERROR: bundle.createUpdaterArtifacts must be true for updater releases!"
             exit 1
           fi
           echo "Versions match ✓"
@@ -78,6 +84,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
           releaseName: 'Omni Clock v__VERSION__'

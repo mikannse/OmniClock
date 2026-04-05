@@ -1,29 +1,28 @@
+﻿import { Monitor, Moon, RefreshCw, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import i18n from '@/i18n';
-import { useTimerContext } from '../../contexts/TimerContext';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import i18n, { changeLanguage, languages } from '@/i18n';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { languages, changeLanguage } from '@/i18n';
-import { Moon, Sun, Monitor, RefreshCw } from 'lucide-react';
-import { VERSION } from '@/utils/version';
+import { Switch } from '@/components/ui/switch';
 import { useUpdateCheck } from '@/hooks/useUpdateCheck';
+import { cn } from '@/lib/utils';
+import { VERSION } from '@/utils/version';
+import { useTimerContext } from '../../contexts/TimerContext';
 
 export function SettingsView() {
   const { t } = useTranslation();
   const { settings, updateSettings } = useTimerContext();
   const { checking, checkForUpdates } = useUpdateCheck();
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t('settings.title')}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{t('settings.subtitle')}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t('settings.subtitle')}</p>
       </div>
 
-      {/* Notifications */}
       <section className="space-y-4">
         <h3 className="text-sm font-medium">{t('settings.notifications')}</h3>
         <div className="space-y-4">
@@ -42,7 +41,6 @@ export function SettingsView() {
 
       <Separator />
 
-      {/* Sound */}
       <section className="space-y-4">
         <h3 className="text-sm font-medium">{t('settings.sound')}</h3>
         <div className="space-y-4">
@@ -61,7 +59,6 @@ export function SettingsView() {
 
       <Separator />
 
-      {/* System */}
       <section className="space-y-4">
         <h3 className="text-sm font-medium">{t('settings.systemSection')}</h3>
         <div className="space-y-4">
@@ -90,39 +87,41 @@ export function SettingsView() {
 
       <Separator />
 
-      {/* Theme */}
       <section className="space-y-4">
         <h3 className="text-sm font-medium">{t('settings.theme')}</h3>
         <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => updateSettings({ theme: 'light' })}
-            className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-colors ${
+            className={cn(
+              'flex flex-col items-center gap-2 rounded-lg border p-3 transition-colors',
               settings.theme === 'light'
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-border hover:bg-accent hover:text-accent-foreground'
-            }`}
+                ? 'border-primary bg-secondary text-foreground'
+                : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            )}
           >
             <Sun className="h-5 w-5" />
             <span className="text-xs">{t('settings.light')}</span>
           </button>
           <button
             onClick={() => updateSettings({ theme: 'dark' })}
-            className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-colors ${
+            className={cn(
+              'flex flex-col items-center gap-2 rounded-lg border p-3 transition-colors',
               settings.theme === 'dark'
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-border hover:bg-accent hover:text-accent-foreground'
-            }`}
+                ? 'border-primary bg-secondary text-foreground'
+                : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            )}
           >
             <Moon className="h-5 w-5" />
             <span className="text-xs">{t('settings.dark')}</span>
           </button>
           <button
             onClick={() => updateSettings({ theme: 'system' })}
-            className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-colors ${
+            className={cn(
+              'flex flex-col items-center gap-2 rounded-lg border p-3 transition-colors',
               settings.theme === 'system'
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-border hover:bg-accent hover:text-accent-foreground'
-            }`}
+                ? 'border-primary bg-secondary text-foreground'
+                : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            )}
           >
             <Monitor className="h-5 w-5" />
             <span className="text-xs">{t('settings.system')}</span>
@@ -132,7 +131,6 @@ export function SettingsView() {
 
       <Separator />
 
-      {/* Language */}
       <section className="space-y-4">
         <h3 className="text-sm font-medium">{t('settings.language')}</h3>
         <div className="space-y-2">
@@ -141,13 +139,13 @@ export function SettingsView() {
           </Label>
           <select
             id="language"
-            value={i18n.language}
-            onChange={(e) => changeLanguage(e.target.value)}
-            className="w-full h-10 px-3 py-2 text-sm bg-background border border-border rounded-lg"
+            value={currentLanguage}
+            onChange={(event) => changeLanguage(event.target.value)}
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
-            {languages.map((lang) => (
-              <option key={lang.code} value={lang.code}>
-                {lang.nativeName} ({lang.name})
+            {languages.map((language) => (
+              <option key={language.code} value={language.code}>
+                {language.nativeName} ({language.name})
               </option>
             ))}
           </select>
@@ -156,26 +154,19 @@ export function SettingsView() {
 
       <Separator />
 
-      {/* About */}
       <section className="space-y-4">
         <h3 className="text-sm font-medium">{t('settings.about')}</h3>
         <div className="grid grid-cols-2 gap-4">
-          <div className="p-4 rounded-lg border border-border">
-            <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{t('app.name')}</div>
-            <div className="font-medium">Omni Clock</div>
+          <div className="rounded-lg border border-border p-4">
+            <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">{t('app.name')}</div>
+            <div className="font-medium">{t('app.name')}</div>
           </div>
-          <div className="p-4 rounded-lg border border-border">
-            <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{t('settings.version')}</div>
-            <div className="font-medium flex items-center justify-between">
+          <div className="rounded-lg border border-border p-4">
+            <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">{t('settings.version')}</div>
+            <div className="flex items-center justify-between font-medium">
               <span>v{VERSION}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={checkForUpdates}
-                disabled={checking}
-                className="h-7 px-2"
-              >
-                <RefreshCw className={`h-3 w-3 mr-1 ${checking ? 'animate-spin' : ''}`} />
+              <Button variant="ghost" size="sm" onClick={checkForUpdates} disabled={checking} className="h-7 px-2">
+                <RefreshCw className={cn('mr-1 h-3 w-3', checking && 'animate-spin')} />
                 {checking ? t('settings.checking') : t('settings.checkUpdate')}
               </Button>
             </div>

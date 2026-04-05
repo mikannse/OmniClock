@@ -1,10 +1,12 @@
-import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
-import type { TimerConfig, TimerState, TimerSegment, Settings } from '../types';
-import { loadConfigs, saveConfigs, loadSettings, saveSettings } from '../utils/storage';
-import { generateId, minutesToSeconds } from '../utils/time';
+﻿import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';
+import { message } from '@tauri-apps/plugin-dialog';
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
-import { playSound } from '../utils/sound';
+import { useTranslation } from 'react-i18next';
+import type { Settings, TimerConfig, TimerSegment, TimerState } from '../types';
 import { setAutostart } from '../utils/autostart';
+import { playSound } from '../utils/sound';
+import { loadConfigs, loadSettings, saveConfigs, saveSettings } from '../utils/storage';
+import { generateId, minutesToSeconds } from '../utils/time';
 
 interface TimerContextType {
   configs: TimerConfig[];
@@ -33,12 +35,26 @@ type TimerAction =
   | { type: 'PAUSE' }
   | { type: 'RESUME' }
   | { type: 'RESET' }
-  | { type: 'TIMER_END' }
-  | { type: 'SET_WARNING'; payload: boolean };
+  | { type: 'TIMER_END' };
 
-const initialState: TimerState & { configs: TimerConfig[]; settings: Settings; activeConfig: TimerConfig | null; warning: boolean } = {
+type TimerContextState = TimerState & {
+  configs: TimerConfig[];
+  settings: Settings;
+  activeConfig: TimerConfig | null;
+  warning: boolean;
+};
+
+const initialSettings: Settings = {
+  notificationsEnabled: true,
+  soundEnabled: true,
+  theme: 'system',
+  autostartEnabled: false,
+  closeToTray: false,
+};
+
+const initialState: TimerContextState = {
   configs: [],
-  settings: { notificationsEnabled: true, soundEnabled: true, theme: 'system', autostartEnabled: false, closeToTray: false },
+  settings: initialSettings,
   activeConfig: null,
   status: 'idle',
   currentSegmentIndex: 0,
@@ -47,7 +63,13 @@ const initialState: TimerState & { configs: TimerConfig[]; settings: Settings; a
   warning: false,
 };
 
-function timerReducer(state: typeof initialState, action: TimerAction): typeof initialState {
+const CLOSE_TO_TRAY_HINT_KEY = 'close_to_tray_hint_shown';
+
+function calculateTotalMinutes(segments: TimerSegment[]): number {
+  return segments.reduce((sum, segment) => sum + segment.minutes, 0);
+}
+
+function timerReducer(state: TimerContextState, action: TimerAction): TimerContextState {
   switch (action.type) {
     case 'SET_CONFIGS':
       return { ...state, configs: action.payload };
@@ -63,15 +85,19 @@ function timerReducer(state: typeof initialState, action: TimerAction): typeof i
         totalElapsedSeconds: 0,
         warning: false,
       };
-    case 'TICK':
-      if (state.remainingSeconds <= 0) return state;
-      const newRemaining = state.remainingSeconds - 1;
+    case 'TICK': {
+      if (state.remainingSeconds <= 0) {
+        return state;
+      }
+
+      const remainingSeconds = state.remainingSeconds - 1;
       return {
         ...state,
-        remainingSeconds: newRemaining,
+        remainingSeconds,
         totalElapsedSeconds: state.totalElapsedSeconds + 1,
-        warning: newRemaining <= 30 && newRemaining > 0,
+        warning: remainingSeconds <= 30 && remainingSeconds > 0,
       };
+    }
     case 'NEXT_SEGMENT':
       return {
         ...state,
@@ -101,8 +127,6 @@ function timerReducer(state: typeof initialState, action: TimerAction): typeof i
         totalElapsedSeconds: 0,
         warning: false,
       };
-    case 'SET_WARNING':
-      return { ...state, warning: action.payload };
     default:
       return state;
   }
@@ -111,14 +135,15 @@ function timerReducer(state: typeof initialState, action: TimerAction): typeof i
 const TimerContext = createContext<TimerContextType | null>(null);
 
 export function TimerProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   const [state, dispatch] = useReducer(timerReducer, initialState);
   const intervalRef = useRef<number | null>(null);
 
   useEffect(() => {
-    loadConfigs().then((configs) => dispatch({ type: 'SET_CONFIGS', payload: configs }));
-    loadSettings().then((settings) => {
+    void loadConfigs().then((configs) => dispatch({ type: 'SET_CONFIGS', payload: configs }));
+    void loadSettings().then((settings) => {
       dispatch({ type: 'SET_SETTINGS', payload: settings });
-      setAutostart(settings.autostartEnabled).catch(console.error);
+      void setAutostart(settings.autostartEnabled).catch(console.error);
     });
   }, []);
 
@@ -127,100 +152,150 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       intervalRef.current = window.setInterval(() => {
         dispatch({ type: 'TICK' });
       }, 1000);
-    } else {
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
-    }
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
     };
-  }, [state.status, state.activeConfig]);
+  }, [state.activeConfig, state.status]);
 
-  useEffect(() => {
-    if (state.status === 'running' && state.remainingSeconds === 0 && state.activeConfig) {
-      const nextIndex = state.currentSegmentIndex + 1;
-      if (nextIndex < state.activeConfig.segments.length) {
-        const nextSegment = state.activeConfig.segments[nextIndex];
-        handleSegmentEnd(state.activeConfig, state.currentSegmentIndex, nextSegment, nextIndex);
-        dispatch({
-          type: 'NEXT_SEGMENT',
-          payload: { nextIndex, seconds: minutesToSeconds(nextSegment.minutes) },
-        });
-      } else {
-        handleTimerEnd();
-        dispatch({ type: 'TIMER_END' });
+  const playTimerSound = useCallback(
+    (type: 'segmentEnd' | 'timerEnd' | 'timerStart') => {
+      void playSound(type, state.settings.soundEnabled);
+    },
+    [state.settings.soundEnabled],
+  );
+
+  const showNotification = useCallback(
+    async (title: string, body: string) => {
+      if (!state.settings.notificationsEnabled) {
+        return;
       }
-    }
-  }, [state.remainingSeconds, state.status, state.currentSegmentIndex, state.activeConfig]);
 
-  const playTimerSound = useCallback((type: 'segmentEnd' | 'timerEnd' | 'timerStart') => {
-    if (!state.settings.soundEnabled) return;
-    playSound(type);
-  }, [state.settings.soundEnabled]);
+      try {
+        let permissionGranted = await isPermissionGranted();
+        if (!permissionGranted) {
+          permissionGranted = (await requestPermission()) === 'granted';
+        }
 
-  const showNotification = useCallback(async (title: string, body: string) => {
-    if (!state.settings.notificationsEnabled) return;
-    try {
-      let permissionGranted = await isPermissionGranted();
-      if (!permissionGranted) {
-        const permission = await requestPermission();
-        permissionGranted = permission === 'granted';
+        if (permissionGranted) {
+          sendNotification({ title, body });
+        }
+      } catch (error) {
+        console.error('Failed to show notification:', error);
       }
-      if (permissionGranted) {
-        sendNotification({ title, body });
-      }
-    } catch (e) {
-      console.error('Failed to show notification:', e);
-    }
-  }, [state.settings.notificationsEnabled]);
+    },
+    [state.settings.notificationsEnabled],
+  );
 
-  const handleSegmentEnd = useCallback((config: TimerConfig, segmentIndex: number, nextSegment: TimerSegment, _nextIndex: number) => {
-    playTimerSound('segmentEnd');
-    showNotification(
-      `「${config.segments[segmentIndex].name}」时间到！`,
-      `下一个题型：「${nextSegment.name}」`
-    );
-  }, [playTimerSound, showNotification]);
+  const handleSegmentEnd = useCallback(
+    (config: TimerConfig, segmentIndex: number, nextSegment: TimerSegment) => {
+      playTimerSound('segmentEnd');
+      void showNotification(
+        t('timer.notifications.segmentCompleteTitle', {
+          segment: config.segments[segmentIndex]?.name ?? nextSegment.name,
+        }),
+        t('timer.notifications.segmentCompleteBody', { segment: nextSegment.name }),
+      );
+    },
+    [playTimerSound, showNotification, t],
+  );
 
   const handleTimerEnd = useCallback(() => {
     playTimerSound('timerEnd');
-    showNotification('计时结束！', '所有题型时间已用完');
-  }, [playTimerSound, showNotification]);
+    void showNotification(
+      t('timer.notifications.completeTitle'),
+      t('timer.notifications.completeBody'),
+    );
+  }, [playTimerSound, showNotification, t]);
 
-  const addConfig = useCallback(async (config: Omit<TimerConfig, 'id' | 'createdAt'>) => {
-    const newConfig: TimerConfig = {
-      ...config,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-    };
-    const newConfigs = [...state.configs, newConfig];
-    await saveConfigs(newConfigs);
-    dispatch({ type: 'SET_CONFIGS', payload: newConfigs });
-  }, [state.configs]);
+  useEffect(() => {
+    if (state.status !== 'running' || state.remainingSeconds !== 0 || !state.activeConfig) {
+      return;
+    }
 
-  const updateConfig = useCallback(async (id: string, config: Partial<TimerConfig>) => {
-    const newConfigs = state.configs.map((c) => (c.id === id ? { ...c, ...config } : c));
-    await saveConfigs(newConfigs);
-    dispatch({ type: 'SET_CONFIGS', payload: newConfigs });
-  }, [state.configs]);
+    const nextIndex = state.currentSegmentIndex + 1;
+    if (nextIndex < state.activeConfig.segments.length) {
+      const nextSegment = state.activeConfig.segments[nextIndex];
+      handleSegmentEnd(state.activeConfig, state.currentSegmentIndex, nextSegment);
+      dispatch({
+        type: 'NEXT_SEGMENT',
+        payload: { nextIndex, seconds: minutesToSeconds(nextSegment.minutes) },
+      });
+      return;
+    }
 
-  const deleteConfig = useCallback(async (id: string) => {
-    const newConfigs = state.configs.filter((c) => c.id !== id);
-    await saveConfigs(newConfigs);
-    dispatch({ type: 'SET_CONFIGS', payload: newConfigs });
-  }, [state.configs]);
+    handleTimerEnd();
+    dispatch({ type: 'TIMER_END' });
+  }, [handleSegmentEnd, handleTimerEnd, state.activeConfig, state.currentSegmentIndex, state.remainingSeconds, state.status]);
 
-  const startTimer = useCallback((configId: string) => {
-    const config = state.configs.find((c) => c.id === configId);
-    if (!config || config.segments.length === 0) return;
-    const initialSeconds = minutesToSeconds(config.segments[0].minutes);
-    dispatch({ type: 'START_TIMER', payload: { config, initialSeconds } });
-    playTimerSound('timerStart');
-  }, [state.configs, playTimerSound]);
+  const addConfig = useCallback(
+    async (config: Omit<TimerConfig, 'id' | 'createdAt'>) => {
+      const newConfig: TimerConfig = {
+        ...config,
+        totalMinutes: calculateTotalMinutes(config.segments),
+        id: generateId(),
+        createdAt: new Date().toISOString(),
+      };
+      const newConfigs = [...state.configs, newConfig];
+      await saveConfigs(newConfigs);
+      dispatch({ type: 'SET_CONFIGS', payload: newConfigs });
+    },
+    [state.configs],
+  );
+
+  const updateConfig = useCallback(
+    async (id: string, config: Partial<TimerConfig>) => {
+      const newConfigs = state.configs.map((currentConfig) => {
+        if (currentConfig.id !== id) {
+          return currentConfig;
+        }
+
+        const segments = config.segments ?? currentConfig.segments;
+        return {
+          ...currentConfig,
+          ...config,
+          segments,
+          totalMinutes: calculateTotalMinutes(segments),
+        };
+      });
+
+      await saveConfigs(newConfigs);
+      dispatch({ type: 'SET_CONFIGS', payload: newConfigs });
+    },
+    [state.configs],
+  );
+
+  const deleteConfig = useCallback(
+    async (id: string) => {
+      const newConfigs = state.configs.filter((config) => config.id !== id);
+      await saveConfigs(newConfigs);
+      dispatch({ type: 'SET_CONFIGS', payload: newConfigs });
+    },
+    [state.configs],
+  );
+
+  const startTimer = useCallback(
+    (configId: string) => {
+      const config = state.configs.find((item) => item.id === configId);
+      if (!config || config.segments.length === 0) {
+        return;
+      }
+
+      dispatch({
+        type: 'START_TIMER',
+        payload: { config, initialSeconds: minutesToSeconds(config.segments[0].minutes) },
+      });
+      playTimerSound('timerStart');
+    },
+    [playTimerSound, state.configs],
+  );
 
   const pauseTimer = useCallback(() => {
     dispatch({ type: 'PAUSE' });
@@ -234,24 +309,50 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'RESET' });
   }, []);
 
-  const jumpToSegment = useCallback((segmentIndex: number) => {
-    if (!state.activeConfig) return;
-    const segment = state.activeConfig.segments[segmentIndex];
-    if (!segment) return;
-    dispatch({
-      type: 'JUMP_TO_SEGMENT',
-      payload: { segmentIndex, seconds: minutesToSeconds(segment.minutes) },
-    });
-  }, [state.activeConfig]);
+  const jumpToSegment = useCallback(
+    (segmentIndex: number) => {
+      if (!state.activeConfig) {
+        return;
+      }
 
-  const updateSettings = useCallback(async (newSettings: Partial<Settings>) => {
-    const updated = { ...state.settings, ...newSettings };
-    await saveSettings(updated);
-    if (newSettings.autostartEnabled !== undefined) {
-      await setAutostart(newSettings.autostartEnabled);
-    }
-    dispatch({ type: 'SET_SETTINGS', payload: updated });
-  }, [state.settings]);
+      const segment = state.activeConfig.segments[segmentIndex];
+      if (!segment) {
+        return;
+      }
+
+      dispatch({
+        type: 'JUMP_TO_SEGMENT',
+        payload: { segmentIndex, seconds: minutesToSeconds(segment.minutes) },
+      });
+    },
+    [state.activeConfig],
+  );
+
+  const updateSettings = useCallback(
+    async (newSettings: Partial<Settings>) => {
+      const updatedSettings = { ...state.settings, ...newSettings };
+      await saveSettings(updatedSettings);
+
+      if (newSettings.autostartEnabled !== undefined) {
+        await setAutostart(newSettings.autostartEnabled);
+      }
+
+      dispatch({ type: 'SET_SETTINGS', payload: updatedSettings });
+
+      if (
+        newSettings.closeToTray === true
+        && !state.settings.closeToTray
+        && localStorage.getItem(CLOSE_TO_TRAY_HINT_KEY) !== 'true'
+      ) {
+        localStorage.setItem(CLOSE_TO_TRAY_HINT_KEY, 'true');
+        await message(t('settings.closeToTrayHintBody'), {
+          title: t('settings.closeToTrayHintTitle'),
+          kind: 'info',
+        });
+      }
+    },
+    [state.settings, t],
+  );
 
   return (
     <TimerContext.Provider
@@ -287,5 +388,6 @@ export function useTimerContext() {
   if (!context) {
     throw new Error('useTimerContext must be used within a TimerProvider');
   }
+
   return context;
 }
