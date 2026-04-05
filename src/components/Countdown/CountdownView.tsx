@@ -41,26 +41,6 @@ export function CountdownView() {
     setTotalSeconds(clamped);
   };
 
-  const setTimePart = (unit: 'hours' | 'minutes' | 'seconds', rawValue: string) => {
-    if (!isEditing) {
-      return;
-    }
-
-    const parts = getTimeParts(timeLeft);
-    const numericValue = Number.parseInt(rawValue || '0', 10);
-    const safeValue = Number.isNaN(numericValue) ? 0 : numericValue;
-
-    if (unit === 'hours') {
-      parts.hours = Math.max(0, Math.min(23, safeValue));
-    } else if (unit === 'minutes') {
-      parts.minutes = Math.max(0, Math.min(59, safeValue));
-    } else {
-      parts.seconds = Math.max(0, Math.min(59, safeValue));
-    }
-
-    applyTime(parts.hours * 3600 + parts.minutes * 60 + parts.seconds);
-  };
-
   const handleStartStop = () => {
     if (isRunning) {
       pause();
@@ -158,14 +138,9 @@ export function CountdownView() {
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
-                <input
-                  type="number"
-                  min={0}
-                  max={unit === 'hours' ? 23 : 59}
-                  value={timeParts[unit]}
-                  onChange={(event) => setTimePart(unit, event.target.value)}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-center font-mono text-lg"
-                />
+                <div className="text-2xl font-mono font-medium">
+                  {timeParts[unit].toString().padStart(2, '0')}
+                </div>
                 <div className="text-xs text-muted-foreground">{t(`countdown.${unit}`)}</div>
                 <Button
                   variant="ghost"
