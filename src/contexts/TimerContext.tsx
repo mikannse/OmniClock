@@ -116,7 +116,10 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadConfigs().then((configs) => dispatch({ type: 'SET_CONFIGS', payload: configs }));
-    loadSettings().then((settings) => dispatch({ type: 'SET_SETTINGS', payload: settings }));
+    loadSettings().then((settings) => {
+      dispatch({ type: 'SET_SETTINGS', payload: settings });
+      setAutostart(settings.autostartEnabled).catch(console.error);
+    });
   }, []);
 
   useEffect(() => {
