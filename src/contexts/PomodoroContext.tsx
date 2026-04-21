@@ -1,5 +1,5 @@
 ﻿import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
-import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
+import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import type { PomodoroSettings, PomodoroState } from '../types';
 import { useTimerContext } from './TimerContext';
@@ -127,14 +127,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        let permissionGranted = await isPermissionGranted();
-        if (!permissionGranted) {
-          permissionGranted = (await requestPermission()) === 'granted';
-        }
-
-        if (permissionGranted) {
-          sendNotification({ title, body });
-        }
+        await invoke('send_notification', { title, body });
       } catch (error) {
         console.error('Failed to show notification:', error);
       }

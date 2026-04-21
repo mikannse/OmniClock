@@ -150,6 +150,11 @@ type ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings';
 - Frontend detects platform via `window.__TAURI__` presence
 - Rust backend uses `#[cfg(not(mobile))]` for desktop-only code
 
+### Platform-Specific Implementation
+- **Notifications**: macOS uses AppleScript (`osascript -e "display notification..."`) via `Command::new("osascript")` to avoid Tauri plugin hash issue. Windows/Linux use `tauri_plugin_notification::NotificationExt`. Frontend calls `invoke('send_notification', { title, body })`.
+- **Autostart**: Uses `tauri_plugin_autostart::launcher::LaunchAgent` (cross-platform, not `MacosLauncher::LaunchAgent`)
+- **System tray**: Only initialized on desktop (`#[cfg(not(mobile))]`)
+
 ### Tauri Capabilities (src-tauri/capabilities/default.json)
 Capabilities enable permissions for Tauri APIs:
 - `core:default`, `core:event:default`
@@ -201,7 +206,7 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
 - System tray setup with context menu (Show/Hide/Start Work/Quit)
 - Tray icon using `tray-icon` feature
 - Emits `tray-start-work` event to frontend via Tauri events API
-- Desktop-only: all tray code wrapped in `#[cfg(not(mobile))]`
+- Desktop-only: tray setup guarded by `#[cfg(not(mobile))]`
 
 ### Window Configuration
 - Default size: 900x700px

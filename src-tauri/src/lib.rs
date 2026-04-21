@@ -1,4 +1,5 @@
 ﻿use serde::Deserialize;
+use std::process::Command;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, TrayIcon, TrayIconBuilder, TrayIconEvent},
@@ -49,6 +50,39 @@ fn update_tray_labels(app: AppHandle, labels: TrayLabels) -> Result<(), String> 
         .map_err(|error| error.to_string())?;
 
     Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn send_notification_impl(_app: &AppHandle, title: &str, body: &str) -> Result<(), String> {
+    let script = format!(
+        "display notification \"{}\" with title \"{}\"",
+        body.replace("\"", "\\\""),
+        title.replace("\"", "\\\"")
+    );
+
+    Command::new("osascript")
+        .args(["-e", &script])
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn send_notification_impl(app: &AppHandle, title: &str, body: &str) -> Result<(), String> {
+    use tauri_plugin_notification::NotificationExt;
+    app.notification()
+        .builder()
+        .title(title)
+        .body(body)
+        .show()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn send_notification(app: AppHandle, title: String, body: String) -> Result<(), String> {
+    send_notification_impl(&app, &title, &body)
 }
 
 fn setup_tray(app: &AppHandle) -> Result<TrayIcon, tauri::Error> {
@@ -105,13 +139,14 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            tauri_plugin_autostart::launcher::LaunchAgent,
             Some(vec!["--minimized"]),
         ))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![update_tray_labels])
+        .invoke_handler(tauri::generate_handler![update_tray_labels, send_notification])
         .setup(|app| {
+            #[cfg(not(mobile))]
             setup_tray(app.handle())?;
 
             #[cfg(debug_assertions)]

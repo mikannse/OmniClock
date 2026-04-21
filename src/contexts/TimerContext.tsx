@@ -1,6 +1,6 @@
 ﻿import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';
 import { message } from '@tauri-apps/plugin-dialog';
-import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
+import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import type { Settings, TimerConfig, TimerSegment, TimerState } from '../types';
 import { setAutostart } from '../utils/autostart';
@@ -179,14 +179,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        let permissionGranted = await isPermissionGranted();
-        if (!permissionGranted) {
-          permissionGranted = (await requestPermission()) === 'granted';
-        }
-
-        if (permissionGranted) {
-          sendNotification({ title, body });
-        }
+        await invoke('send_notification', { title, body });
       } catch (error) {
         console.error('Failed to show notification:', error);
       }

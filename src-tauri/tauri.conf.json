@@ -40,7 +40,10 @@
     "copyright": "Copyright (c) 2024-2026",
     "category": "Productivity",
     "shortDescription": "Multi-module clock application",
-    "longDescription": "Omni Clock is a timer, stopwatch, countdown, and Pomodoro app."
+    "longDescription": "Omni Clock is a timer, stopwatch, countdown, and Pomodoro app.",
+    "macOS": {
+      "entitlements": "entitlements/main.plist"
+    }
   },
   "plugins": {
     "updater": {
