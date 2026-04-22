@@ -1,4 +1,4 @@
-﻿import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import type { PomodoroSettings, PomodoroState } from '../types';
@@ -9,8 +9,8 @@ import { loadPomodoroSettings, savePomodoroSettings } from '../utils/storage';
 type PomodoroStatus = 'idle' | 'working' | 'shortBreak' | 'longBreak';
 
 type PomodoroAction =
-  | { type: 'START'; payload: { status: PomodoroStatus; seconds: number } }
-  | { type: 'TICK' }
+  | { type: 'START'; payload: { status: PomodoroStatus; seconds: number; startedAt: number } }
+  | { type: 'TICK'; payload: { remainingSeconds: number; totalElapsedSeconds: number } }
   | { type: 'RESET' }
   | { type: 'SET_COMPLETED'; payload: { count: number } };
 
@@ -33,14 +33,19 @@ const defaultSettings: PomodoroSettings = {
   longBreakInterval: 4,
 };
 
-const initialState: PomodoroState = {
+interface PomodoroStateExtended extends PomodoroState {
+  startedAt: number | null;
+}
+
+const initialStateExtended: PomodoroStateExtended = {
   status: 'idle',
   completedPomodoros: 0,
   remainingSeconds: 0,
   totalElapsedSeconds: 0,
+  startedAt: null,
 };
 
-function pomodoroReducer(state: PomodoroState, action: PomodoroAction): PomodoroState {
+function pomodoroReducer(state: PomodoroStateExtended, action: PomodoroAction): PomodoroStateExtended {
   switch (action.type) {
     case 'START':
       return {
@@ -48,18 +53,16 @@ function pomodoroReducer(state: PomodoroState, action: PomodoroAction): Pomodoro
         status: action.payload.status,
         remainingSeconds: action.payload.seconds,
         totalElapsedSeconds: 0,
+        startedAt: action.payload.startedAt,
       };
     case 'TICK':
-      if (state.remainingSeconds <= 0) {
-        return state;
-      }
       return {
         ...state,
-        remainingSeconds: state.remainingSeconds - 1,
-        totalElapsedSeconds: state.totalElapsedSeconds + 1,
+        remainingSeconds: action.payload.remainingSeconds,
+        totalElapsedSeconds: action.payload.totalElapsedSeconds,
       };
     case 'RESET':
-      return { ...initialState };
+      return { ...initialStateExtended };
     case 'SET_COMPLETED':
       return { ...state, completedPomodoros: action.payload.count };
     default:
@@ -73,11 +76,13 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const { settings: appSettings } = useTimerContext();
   const [settings, setSettings] = useState<PomodoroSettings>(defaultSettings);
-  const [state, dispatch] = useReducer(pomodoroReducer, initialState);
+  const [state, dispatch] = useReducer(pomodoroReducer, initialStateExtended);
   const intervalRef = useRef<number | null>(null);
   const statusRef = useRef<PomodoroStatus>('idle');
   const completedRef = useRef(0);
   const settingsRef = useRef(settings);
+  const startedAtRef = useRef<number>(0);
+  const initialSecondsRef = useRef<number>(0);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -96,10 +101,18 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (state.status !== 'idle') {
+    if (state.status !== 'idle' && state.startedAt !== null) {
       intervalRef.current = window.setInterval(() => {
-        dispatch({ type: 'TICK' });
-      }, 1000);
+        const now = Date.now();
+        const elapsed = Math.floor((now - state.startedAt!) / 1000);
+        const remaining = Math.max(0, initialSecondsRef.current - elapsed);
+        const total = elapsed;
+
+        dispatch({
+          type: 'TICK',
+          payload: { remainingSeconds: remaining, totalElapsedSeconds: total },
+        });
+      }, 100);
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -111,7 +124,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
         intervalRef.current = null;
       }
     };
-  }, [state.status]);
+  }, [state.status, state.startedAt]);
 
   const playPomodoroSound = useCallback(
     (type: 'timerStart' | 'timerEnd') => {
@@ -139,15 +152,19 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     const currentSettings = settingsRef.current;
     const currentStatus = statusRef.current;
     const currentCompleted = completedRef.current;
+    const now = Date.now();
 
     if (currentStatus === 'working') {
       const nextCompleted = currentCompleted + 1;
       dispatch({ type: 'SET_COMPLETED', payload: { count: nextCompleted } });
 
       if (nextCompleted % currentSettings.longBreakInterval === 0) {
+        const seconds = currentSettings.longBreakMinutes * 60;
+        initialSecondsRef.current = seconds;
+        startedAtRef.current = now;
         dispatch({
           type: 'START',
-          payload: { status: 'longBreak', seconds: currentSettings.longBreakMinutes * 60 },
+          payload: { status: 'longBreak', seconds, startedAt: now },
         });
         statusRef.current = 'longBreak';
         void showNotification(
@@ -155,9 +172,12 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
           t('pomodoro.notifications.longBreakBody'),
         );
       } else {
+        const seconds = currentSettings.shortBreakMinutes * 60;
+        initialSecondsRef.current = seconds;
+        startedAtRef.current = now;
         dispatch({
           type: 'START',
-          payload: { status: 'shortBreak', seconds: currentSettings.shortBreakMinutes * 60 },
+          payload: { status: 'shortBreak', seconds, startedAt: now },
         });
         statusRef.current = 'shortBreak';
         void showNotification(
@@ -169,9 +189,12 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (currentStatus === 'shortBreak') {
+      const seconds = currentSettings.workMinutes * 60;
+      initialSecondsRef.current = seconds;
+      startedAtRef.current = now;
       dispatch({
         type: 'START',
-        payload: { status: 'working', seconds: currentSettings.workMinutes * 60 },
+        payload: { status: 'working', seconds, startedAt: now },
       });
       statusRef.current = 'working';
       void showNotification(
@@ -182,9 +205,12 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (currentStatus === 'longBreak') {
+      const seconds = currentSettings.workMinutes * 60;
+      initialSecondsRef.current = seconds;
+      startedAtRef.current = now;
       dispatch({
         type: 'START',
-        payload: { status: 'working', seconds: currentSettings.workMinutes * 60 },
+        payload: { status: 'working', seconds, startedAt: now },
       });
       statusRef.current = 'working';
       void showNotification(
@@ -217,19 +243,31 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   );
 
   const startWork = useCallback(() => {
-    dispatch({ type: 'START', payload: { status: 'working', seconds: settings.workMinutes * 60 } });
+    const seconds = settings.workMinutes * 60;
+    const now = Date.now();
+    initialSecondsRef.current = seconds;
+    startedAtRef.current = now;
+    dispatch({ type: 'START', payload: { status: 'working', seconds, startedAt: now } });
     statusRef.current = 'working';
     playPomodoroSound('timerStart');
   }, [playPomodoroSound, settings.workMinutes]);
 
   const startShortBreak = useCallback(() => {
-    dispatch({ type: 'START', payload: { status: 'shortBreak', seconds: settings.shortBreakMinutes * 60 } });
+    const seconds = settings.shortBreakMinutes * 60;
+    const now = Date.now();
+    initialSecondsRef.current = seconds;
+    startedAtRef.current = now;
+    dispatch({ type: 'START', payload: { status: 'shortBreak', seconds, startedAt: now } });
     statusRef.current = 'shortBreak';
     playPomodoroSound('timerStart');
   }, [playPomodoroSound, settings.shortBreakMinutes]);
 
   const startLongBreak = useCallback(() => {
-    dispatch({ type: 'START', payload: { status: 'longBreak', seconds: settings.longBreakMinutes * 60 } });
+    const seconds = settings.longBreakMinutes * 60;
+    const now = Date.now();
+    initialSecondsRef.current = seconds;
+    startedAtRef.current = now;
+    dispatch({ type: 'START', payload: { status: 'longBreak', seconds, startedAt: now } });
     statusRef.current = 'longBreak';
     playPomodoroSound('timerStart');
   }, [playPomodoroSound, settings.longBreakMinutes]);
@@ -249,15 +287,24 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     }
     dispatch({ type: 'RESET' });
     statusRef.current = 'idle';
+    startedAtRef.current = 0;
+    initialSecondsRef.current = 0;
   }, []);
 
   const isRunning = state.status !== 'idle';
+
+  const exportedState: PomodoroState = {
+    status: state.status,
+    completedPomodoros: state.completedPomodoros,
+    remainingSeconds: state.remainingSeconds,
+    totalElapsedSeconds: state.totalElapsedSeconds,
+  };
 
   return (
     <PomodoroContext.Provider
       value={{
         settings,
-        pomodoroState: state,
+        pomodoroState: exportedState,
         isRunning,
         updatePomodoroSettings,
         startWork,
@@ -275,7 +322,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
 export function usePomodoroContext() {
   const context = useContext(PomodoroContext);
   if (!context) {
-    throw new Error('usePomodoroContext must be used within a PomodoroProvider');
+    throw new Error('usePomodoroContext must be used within PomodoroProvider');
   }
 
   return context;
