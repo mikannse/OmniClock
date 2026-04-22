@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
 import { playSound } from '../utils/sound';
 
 interface CountdownState {
@@ -21,10 +21,10 @@ interface CountdownContextType {
 type CountdownAction =
   | { type: 'SET_TOTAL_SECONDS'; payload: number }
   | { type: 'SET_TIME_LEFT'; payload: number }
-  | { type: 'START' }
+  | { type: 'START'; payload: { startedAt: number } }
   | { type: 'PAUSE' }
   | { type: 'RESET' }
-  | { type: 'TICK' }
+  | { type: 'TICK'; payload: { timeLeft: number } }
   | { type: 'SET_EDITING'; payload: boolean };
 
 const initialState: CountdownState = {
@@ -34,21 +34,29 @@ const initialState: CountdownState = {
   isEditing: true,
 };
 
-function countdownReducer(state: CountdownState, action: CountdownAction): CountdownState {
+interface CountdownStateExtended extends CountdownState {
+  startedAt: number | null;
+}
+
+const initialStateExtended: CountdownStateExtended = {
+  ...initialState,
+  startedAt: null,
+};
+
+function countdownReducer(state: CountdownStateExtended, action: CountdownAction): CountdownStateExtended {
   switch (action.type) {
     case 'SET_TOTAL_SECONDS':
       return { ...state, totalSeconds: action.payload };
     case 'SET_TIME_LEFT':
       return { ...state, timeLeft: action.payload };
     case 'START':
-      return { ...state, isRunning: true, isEditing: false };
+      return { ...state, isRunning: true, isEditing: false, startedAt: action.payload.startedAt };
     case 'PAUSE':
       return { ...state, isRunning: false };
     case 'RESET':
-      return { ...state, isRunning: false, timeLeft: state.totalSeconds, isEditing: true };
+      return { ...state, isRunning: false, timeLeft: state.totalSeconds, isEditing: true, startedAt: null };
     case 'TICK':
-      if (state.timeLeft <= 0) return { ...state, isRunning: false };
-      return { ...state, timeLeft: state.timeLeft - 1 };
+      return { ...state, timeLeft: action.payload.timeLeft };
     case 'SET_EDITING':
       return { ...state, isEditing: action.payload };
     default:
@@ -59,20 +67,41 @@ function countdownReducer(state: CountdownState, action: CountdownAction): Count
 const CountdownContext = createContext<CountdownContextType | null>(null);
 
 export function CountdownProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(countdownReducer, initialState);
+  const [state, dispatch] = useReducer(countdownReducer, initialStateExtended);
+  const intervalRef = useRef<number | null>(null);
+  const startedAtRef = useRef<number>(0);
+  const initialSecondsRef = useRef<number>(0);
 
   useEffect(() => {
-    let interval: number | null = null;
-    if (state.isRunning && state.timeLeft > 0) {
-      interval = window.setInterval(() => {
-        dispatch({ type: 'TICK' });
-      }, 1000);
-    } else if (state.timeLeft === 0 && state.isRunning) {
-      dispatch({ type: 'PAUSE' });
-      playSound('timerEnd');
+    if (state.isRunning && state.startedAt !== null) {
+      intervalRef.current = window.setInterval(() => {
+        const now = Date.now();
+        const elapsed = Math.floor((now - startedAtRef.current) / 1000);
+        const remaining = Math.max(0, initialSecondsRef.current - elapsed);
+
+        if (remaining === 0) {
+          dispatch({ type: 'PAUSE' });
+          playSound('timerEnd');
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+        } else {
+          dispatch({ type: 'TICK', payload: { timeLeft: remaining } });
+        }
+      }, 100);
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
-    return () => { if (interval) clearInterval(interval); };
-  }, [state.isRunning, state.timeLeft]);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [state.isRunning, state.startedAt]);
 
   const setTotalSeconds = useCallback((seconds: number) => {
     dispatch({ type: 'SET_TOTAL_SECONDS', payload: seconds });
@@ -86,7 +115,10 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
     if (state.isEditing && state.timeLeft > 0) {
       dispatch({ type: 'SET_EDITING', payload: false });
     }
-    dispatch({ type: 'START' });
+    const now = Date.now();
+    initialSecondsRef.current = state.timeLeft;
+    startedAtRef.current = now;
+    dispatch({ type: 'START', payload: { startedAt: now } });
     playSound('timerStart');
   }, [state.isEditing, state.timeLeft]);
 
@@ -97,7 +129,13 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
   }, [state.isRunning]);
 
   const reset = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     dispatch({ type: 'RESET' });
+    startedAtRef.current = 0;
+    initialSecondsRef.current = 0;
   }, []);
 
   const adjustTime = useCallback((amount: number, unit: 'hours' | 'minutes' | 'seconds') => {

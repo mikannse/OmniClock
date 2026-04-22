@@ -1,4 +1,4 @@
-﻿import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';
 import { message } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
@@ -28,10 +28,10 @@ interface TimerContextType {
 type TimerAction =
   | { type: 'SET_CONFIGS'; payload: TimerConfig[] }
   | { type: 'SET_SETTINGS'; payload: Settings }
-  | { type: 'START_TIMER'; payload: { config: TimerConfig; initialSeconds: number } }
-  | { type: 'TICK' }
-  | { type: 'NEXT_SEGMENT'; payload: { nextIndex: number; seconds: number } }
-  | { type: 'JUMP_TO_SEGMENT'; payload: { segmentIndex: number; seconds: number } }
+  | { type: 'START_TIMER'; payload: { config: TimerConfig; initialSeconds: number; startedAt: number } }
+  | { type: 'TICK'; payload: { remainingSeconds: number; totalElapsedSeconds: number; warning: boolean } }
+  | { type: 'NEXT_SEGMENT'; payload: { nextIndex: number; seconds: number; startedAt: number } }
+  | { type: 'JUMP_TO_SEGMENT'; payload: { segmentIndex: number; seconds: number; startedAt: number } }
   | { type: 'PAUSE' }
   | { type: 'RESUME' }
   | { type: 'RESET' }
@@ -42,6 +42,7 @@ type TimerContextState = TimerState & {
   settings: Settings;
   activeConfig: TimerConfig | null;
   warning: boolean;
+  startedAt: number | null;
 };
 
 const initialSettings: Settings = {
@@ -61,6 +62,7 @@ const initialState: TimerContextState = {
   remainingSeconds: 0,
   totalElapsedSeconds: 0,
   warning: false,
+  startedAt: null,
 };
 
 const CLOSE_TO_TRAY_HINT_KEY = 'close_to_tray_hint_shown';
@@ -84,26 +86,22 @@ function timerReducer(state: TimerContextState, action: TimerAction): TimerConte
         remainingSeconds: action.payload.initialSeconds,
         totalElapsedSeconds: 0,
         warning: false,
+        startedAt: action.payload.startedAt,
       };
-    case 'TICK': {
-      if (state.remainingSeconds <= 0) {
-        return state;
-      }
-
-      const remainingSeconds = state.remainingSeconds - 1;
+    case 'TICK':
       return {
         ...state,
-        remainingSeconds,
-        totalElapsedSeconds: state.totalElapsedSeconds + 1,
-        warning: remainingSeconds <= 30 && remainingSeconds > 0,
+        remainingSeconds: action.payload.remainingSeconds,
+        totalElapsedSeconds: action.payload.totalElapsedSeconds,
+        warning: action.payload.warning,
       };
-    }
     case 'NEXT_SEGMENT':
       return {
         ...state,
         currentSegmentIndex: action.payload.nextIndex,
         remainingSeconds: action.payload.seconds,
         warning: false,
+        startedAt: action.payload.startedAt,
       };
     case 'JUMP_TO_SEGMENT':
       return {
@@ -111,6 +109,7 @@ function timerReducer(state: TimerContextState, action: TimerAction): TimerConte
         currentSegmentIndex: action.payload.segmentIndex,
         remainingSeconds: action.payload.seconds,
         warning: false,
+        startedAt: action.payload.startedAt,
       };
     case 'PAUSE':
       return { ...state, status: 'paused' };
@@ -126,6 +125,7 @@ function timerReducer(state: TimerContextState, action: TimerAction): TimerConte
         remainingSeconds: 0,
         totalElapsedSeconds: 0,
         warning: false,
+        startedAt: null,
       };
     default:
       return state;
@@ -138,6 +138,9 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const [state, dispatch] = useReducer(timerReducer, initialState);
   const intervalRef = useRef<number | null>(null);
+  const startedAtRef = useRef<number>(0);
+  const initialSecondsRef = useRef<number>(0);
+  const currentSegmentIndexRef = useRef<number>(0);
 
   useEffect(() => {
     void loadConfigs().then((configs) => dispatch({ type: 'SET_CONFIGS', payload: configs }));
@@ -148,10 +151,22 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (state.status === 'running' && state.activeConfig) {
+    if (state.status === 'running' && state.startedAt !== null) {
       intervalRef.current = window.setInterval(() => {
-        dispatch({ type: 'TICK' });
-      }, 1000);
+        const now = Date.now();
+        const elapsed = Math.floor((now - startedAtRef.current) / 1000);
+        const remaining = Math.max(0, initialSecondsRef.current - elapsed);
+        const total = elapsed;
+
+        dispatch({
+          type: 'TICK',
+          payload: {
+            remainingSeconds: remaining,
+            totalElapsedSeconds: total,
+            warning: remaining <= 30 && remaining > 0,
+          },
+        });
+      }, 100);
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -163,7 +178,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         intervalRef.current = null;
       }
     };
-  }, [state.activeConfig, state.status]);
+  }, [state.status, state.startedAt]);
 
   const playTimerSound = useCallback(
     (type: 'segmentEnd' | 'timerEnd' | 'timerStart') => {
@@ -217,9 +232,14 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     if (nextIndex < state.activeConfig.segments.length) {
       const nextSegment = state.activeConfig.segments[nextIndex];
       handleSegmentEnd(state.activeConfig, state.currentSegmentIndex, nextSegment);
+      const seconds = minutesToSeconds(nextSegment.minutes);
+      const now = Date.now();
+      initialSecondsRef.current = seconds;
+      startedAtRef.current = now;
+      currentSegmentIndexRef.current = nextIndex;
       dispatch({
         type: 'NEXT_SEGMENT',
-        payload: { nextIndex, seconds: minutesToSeconds(nextSegment.minutes) },
+        payload: { nextIndex, seconds, startedAt: now },
       });
       return;
     }
@@ -281,9 +301,14 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      const seconds = minutesToSeconds(config.segments[0].minutes);
+      const now = Date.now();
+      initialSecondsRef.current = seconds;
+      startedAtRef.current = now;
+      currentSegmentIndexRef.current = 0;
       dispatch({
         type: 'START_TIMER',
-        payload: { config, initialSeconds: minutesToSeconds(config.segments[0].minutes) },
+        payload: { config, initialSeconds: seconds, startedAt: now },
       });
       playTimerSound('timerStart');
     },
@@ -299,7 +324,14 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resetTimer = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     dispatch({ type: 'RESET' });
+    startedAtRef.current = 0;
+    initialSecondsRef.current = 0;
+    currentSegmentIndexRef.current = 0;
   }, []);
 
   const jumpToSegment = useCallback(
@@ -313,9 +345,14 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      const seconds = minutesToSeconds(segment.minutes);
+      const now = Date.now();
+      initialSecondsRef.current = seconds;
+      startedAtRef.current = now;
+      currentSegmentIndexRef.current = segmentIndex;
       dispatch({
         type: 'JUMP_TO_SEGMENT',
-        payload: { segmentIndex, seconds: minutesToSeconds(segment.minutes) },
+        payload: { segmentIndex, seconds, startedAt: now },
       });
     },
     [state.activeConfig],
