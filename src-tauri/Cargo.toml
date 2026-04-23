@@ -1,12 +1,12 @@
 [package]
-name = "tauri-app"
+name = "omni-clock"
 version = "0.6.2"
 description = "Omni Clock desktop app"
 authors = ["mikannse"]
 edition = "2021"
 
 [lib]
-name = "tauri_app_lib"
+name = "omni_clock_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
