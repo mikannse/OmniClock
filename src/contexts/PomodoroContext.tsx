@@ -78,6 +78,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<PomodoroSettings>(defaultSettings);
   const [state, dispatch] = useReducer(pomodoroReducer, initialStateExtended);
   const intervalRef = useRef<number | null>(null);
+  const timeoutRef = useRef<number | null>(null);
   const statusRef = useRef<PomodoroStatus>('idle');
   const completedRef = useRef(0);
   const settingsRef = useRef(settings);
@@ -99,32 +100,6 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void loadPomodoroSettings().then(setSettings).catch(console.error);
   }, []);
-
-  useEffect(() => {
-    if (state.status !== 'idle' && state.startedAt !== null) {
-      intervalRef.current = window.setInterval(() => {
-        const now = Date.now();
-        const elapsed = Math.floor((now - state.startedAt!) / 1000);
-        const remaining = Math.max(0, initialSecondsRef.current - elapsed);
-        const total = elapsed;
-
-        dispatch({
-          type: 'TICK',
-          payload: { remainingSeconds: remaining, totalElapsedSeconds: total },
-        });
-      }, 100);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [state.status, state.startedAt]);
 
   const playPomodoroSound = useCallback(
     (type: 'timerStart' | 'timerEnd') => {
@@ -220,18 +195,67 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     }
   }, [showNotification, t]);
 
-  useEffect(() => {
-    if (state.remainingSeconds === 0 && state.status !== 'idle' && state.totalElapsedSeconds > 0) {
-      playPomodoroSound('timerEnd');
-      const timeoutId = window.setTimeout(() => {
-        autoTransition();
-      }, 100);
-
-      return () => window.clearTimeout(timeoutId);
+  const scheduleEndTimeout = useCallback((startedAt: number, durationSeconds: number) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
 
-    return undefined;
-  }, [autoTransition, playPomodoroSound, state.remainingSeconds, state.status, state.totalElapsedSeconds]);
+    const endTime = startedAt + (durationSeconds * 1000);
+    const delay = endTime - Date.now();
+
+    if (delay <= 0) {
+      autoTransition();
+      return;
+    }
+
+    timeoutRef.current = window.setTimeout(() => {
+      playPomodoroSound('timerEnd');
+      autoTransition();
+    }, delay);
+  }, [autoTransition, playPomodoroSound]);
+
+  useEffect(() => {
+    if (state.status !== 'idle' && state.startedAt !== null) {
+      const updateDisplay = () => {
+        const now = Date.now();
+        const elapsed = Math.floor((now - startedAtRef.current) / 1000);
+        const remaining = Math.max(0, initialSecondsRef.current - elapsed);
+        const total = elapsed;
+
+        dispatch({
+          type: 'TICK',
+          payload: { remainingSeconds: remaining, totalElapsedSeconds: total },
+        });
+      };
+
+      updateDisplay();
+      intervalRef.current = window.setInterval(updateDisplay, 100);
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [state.status, state.startedAt]);
+
+  useEffect(() => {
+    if (state.status !== 'idle' && state.startedAt !== null && initialSecondsRef.current > 0) {
+      scheduleEndTimeout(state.startedAt, initialSecondsRef.current);
+    }
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [state.status, state.startedAt, scheduleEndTimeout]);
 
   const updatePomodoroSettings = useCallback(
     async (newSettings: Partial<PomodoroSettings>) => {
@@ -277,6 +301,10 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     autoTransition();
   }, [autoTransition]);
 
@@ -284,6 +312,10 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
     dispatch({ type: 'RESET' });
     statusRef.current = 'idle';
