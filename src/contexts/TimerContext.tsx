@@ -138,9 +138,12 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const [state, dispatch] = useReducer(timerReducer, initialState);
   const intervalRef = useRef<number | null>(null);
+  const timeoutRef = useRef<number | null>(null);
   const startedAtRef = useRef<number>(0);
   const initialSecondsRef = useRef<number>(0);
   const currentSegmentIndexRef = useRef<number>(0);
+  const activeConfigRef = useRef<TimerConfig | null>(null);
+  const segmentsLengthRef = useRef<number>(0);
 
   useEffect(() => {
     void loadConfigs().then((configs) => dispatch({ type: 'SET_CONFIGS', payload: configs }));
@@ -149,36 +152,6 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       void setAutostart(settings.autostartEnabled).catch(console.error);
     });
   }, []);
-
-  useEffect(() => {
-    if (state.status === 'running' && state.startedAt !== null) {
-      intervalRef.current = window.setInterval(() => {
-        const now = Date.now();
-        const elapsed = Math.floor((now - startedAtRef.current) / 1000);
-        const remaining = Math.max(0, initialSecondsRef.current - elapsed);
-        const total = elapsed;
-
-        dispatch({
-          type: 'TICK',
-          payload: {
-            remainingSeconds: remaining,
-            totalElapsedSeconds: total,
-            warning: remaining <= 30 && remaining > 0,
-          },
-        });
-      }, 100);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [state.status, state.startedAt]);
 
   const playTimerSound = useCallback(
     (type: 'segmentEnd' | 'timerEnd' | 'timerStart') => {
@@ -223,30 +196,113 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     );
   }, [playTimerSound, showNotification, t]);
 
+  const scheduleSegmentTransition = useCallback((segmentIndex: number) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    const config = activeConfigRef.current;
+    if (!config || segmentIndex >= config.segments.length) {
+      handleTimerEnd();
+      dispatch({ type: 'TIMER_END' });
+      return;
+    }
+
+    const segment = config.segments[segmentIndex];
+    const seconds = minutesToSeconds(segment.minutes);
+    const endTime = startedAtRef.current + (seconds * 1000);
+    const delay = endTime - Date.now();
+
+    if (delay <= 0) {
+      if (segmentIndex + 1 < config.segments.length) {
+        const nextSegment = config.segments[segmentIndex + 1];
+        handleSegmentEnd(config, segmentIndex, nextSegment);
+        const nextSeconds = minutesToSeconds(nextSegment.minutes);
+        const now = Date.now();
+        initialSecondsRef.current = nextSeconds;
+        startedAtRef.current = now;
+        currentSegmentIndexRef.current = segmentIndex + 1;
+        dispatch({
+          type: 'NEXT_SEGMENT',
+          payload: { nextIndex: segmentIndex + 1, seconds: nextSeconds, startedAt: now },
+        });
+        scheduleSegmentTransition(segmentIndex + 1);
+      } else {
+        handleTimerEnd();
+        dispatch({ type: 'TIMER_END' });
+      }
+      return;
+    }
+
+    timeoutRef.current = window.setTimeout(() => {
+      if (segmentIndex + 1 < config.segments.length) {
+        const nextSegment = config.segments[segmentIndex + 1];
+        handleSegmentEnd(config, segmentIndex, nextSegment);
+        const nextSeconds = minutesToSeconds(nextSegment.minutes);
+        const now = Date.now();
+        initialSecondsRef.current = nextSeconds;
+        startedAtRef.current = now;
+        currentSegmentIndexRef.current = segmentIndex + 1;
+        dispatch({
+          type: 'NEXT_SEGMENT',
+          payload: { nextIndex: segmentIndex + 1, seconds: nextSeconds, startedAt: now },
+        });
+        scheduleSegmentTransition(segmentIndex + 1);
+      } else {
+        handleTimerEnd();
+        dispatch({ type: 'TIMER_END' });
+      }
+    }, delay);
+  }, [handleSegmentEnd, handleTimerEnd]);
+
   useEffect(() => {
-    if (state.status !== 'running' || state.remainingSeconds !== 0 || !state.activeConfig) {
-      return;
+    if (state.status === 'running' && state.startedAt !== null) {
+      const updateDisplay = () => {
+        const now = Date.now();
+        const elapsed = Math.floor((now - startedAtRef.current) / 1000);
+        const remaining = Math.max(0, initialSecondsRef.current - elapsed);
+        const total = elapsed;
+
+        dispatch({
+          type: 'TICK',
+          payload: {
+            remainingSeconds: remaining,
+            totalElapsedSeconds: total,
+            warning: remaining <= 30 && remaining > 0,
+          },
+        });
+      };
+
+      updateDisplay();
+      intervalRef.current = window.setInterval(updateDisplay, 100);
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
 
-    const nextIndex = state.currentSegmentIndex + 1;
-    if (nextIndex < state.activeConfig.segments.length) {
-      const nextSegment = state.activeConfig.segments[nextIndex];
-      handleSegmentEnd(state.activeConfig, state.currentSegmentIndex, nextSegment);
-      const seconds = minutesToSeconds(nextSegment.minutes);
-      const now = Date.now();
-      initialSecondsRef.current = seconds;
-      startedAtRef.current = now;
-      currentSegmentIndexRef.current = nextIndex;
-      dispatch({
-        type: 'NEXT_SEGMENT',
-        payload: { nextIndex, seconds, startedAt: now },
-      });
-      return;
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [state.status, state.startedAt]);
+
+  useEffect(() => {
+    if (state.status === 'running' && state.startedAt !== null && state.activeConfig) {
+      activeConfigRef.current = state.activeConfig;
+      segmentsLengthRef.current = state.activeConfig.segments.length;
+      scheduleSegmentTransition(state.currentSegmentIndex);
     }
 
-    handleTimerEnd();
-    dispatch({ type: 'TIMER_END' });
-  }, [handleSegmentEnd, handleTimerEnd, state.activeConfig, state.currentSegmentIndex, state.remainingSeconds, state.status]);
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [state.status, state.startedAt, state.currentSegmentIndex, state.activeConfig, scheduleSegmentTransition]);
 
   const addConfig = useCallback(
     async (config: Omit<TimerConfig, 'id' | 'createdAt'>) => {
@@ -306,6 +362,8 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       initialSecondsRef.current = seconds;
       startedAtRef.current = now;
       currentSegmentIndexRef.current = 0;
+      activeConfigRef.current = config;
+      segmentsLengthRef.current = config.segments.length;
       dispatch({
         type: 'START_TIMER',
         payload: { config, initialSeconds: seconds, startedAt: now },
@@ -316,6 +374,10 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   );
 
   const pauseTimer = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     dispatch({ type: 'PAUSE' });
   }, []);
 
@@ -328,10 +390,16 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     dispatch({ type: 'RESET' });
     startedAtRef.current = 0;
     initialSecondsRef.current = 0;
     currentSegmentIndexRef.current = 0;
+    activeConfigRef.current = null;
+    segmentsLengthRef.current = 0;
   }, []);
 
   const jumpToSegment = useCallback(

@@ -69,27 +69,43 @@ const CountdownContext = createContext<CountdownContextType | null>(null);
 export function CountdownProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(countdownReducer, initialStateExtended);
   const intervalRef = useRef<number | null>(null);
+  const timeoutRef = useRef<number | null>(null);
   const startedAtRef = useRef<number>(0);
   const initialSecondsRef = useRef<number>(0);
 
+  const scheduleEndTimeout = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    const endTime = startedAtRef.current + (initialSecondsRef.current * 1000);
+    const delay = endTime - Date.now();
+
+    if (delay <= 0) {
+      dispatch({ type: 'PAUSE' });
+      playSound('timerEnd');
+      return;
+    }
+
+    timeoutRef.current = window.setTimeout(() => {
+      dispatch({ type: 'PAUSE' });
+      playSound('timerEnd');
+    }, delay);
+  }, []);
+
   useEffect(() => {
     if (state.isRunning && state.startedAt !== null) {
-      intervalRef.current = window.setInterval(() => {
+      const updateDisplay = () => {
         const now = Date.now();
         const elapsed = Math.floor((now - startedAtRef.current) / 1000);
         const remaining = Math.max(0, initialSecondsRef.current - elapsed);
 
-        if (remaining === 0) {
-          dispatch({ type: 'PAUSE' });
-          playSound('timerEnd');
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-          }
-        } else {
-          dispatch({ type: 'TICK', payload: { timeLeft: remaining } });
-        }
-      }, 100);
+        dispatch({ type: 'TICK', payload: { timeLeft: remaining } });
+      };
+
+      updateDisplay();
+      intervalRef.current = window.setInterval(updateDisplay, 100);
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -102,6 +118,19 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
       }
     };
   }, [state.isRunning, state.startedAt]);
+
+  useEffect(() => {
+    if (state.isRunning && state.startedAt !== null && initialSecondsRef.current > 0) {
+      scheduleEndTimeout();
+    }
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [state.isRunning, state.startedAt, scheduleEndTimeout]);
 
   const setTotalSeconds = useCallback((seconds: number) => {
     dispatch({ type: 'SET_TOTAL_SECONDS', payload: seconds });
@@ -124,6 +153,10 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
 
   const pause = useCallback(() => {
     if (!state.isRunning) return;
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     dispatch({ type: 'PAUSE' });
     playSound('hover');
   }, [state.isRunning]);
@@ -132,6 +165,10 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
     dispatch({ type: 'RESET' });
     startedAtRef.current = 0;
