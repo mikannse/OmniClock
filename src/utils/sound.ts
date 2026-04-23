@@ -10,6 +10,15 @@ function getAudioContext(): AudioContext {
   return audioContext;
 }
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    if (audioContext) {
+      audioContext.close();
+      audioContext = null;
+    }
+  });
+}
+
 export async function playSound(type: SoundType, enabled = true): Promise<void> {
   if (!enabled) {
     return;

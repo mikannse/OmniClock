@@ -31,12 +31,30 @@ function TrayEventHandler() {
   const { startWork } = usePomodoroContext();
 
   useEffect(() => {
-    const unlisten = listen('tray-start-work', () => {
-      startWork();
-    });
+    let stopped = false;
+
+    const setupListener = async () => {
+      const unlisten = await listen('tray-start-work', () => {
+        if (!stopped) {
+          startWork();
+        }
+      });
+
+      if (stopped) {
+        unlisten();
+        return;
+      }
+
+      return unlisten;
+    };
+
+    let unlistenPromise = setupListener();
 
     return () => {
-      void unlisten.then((stopListening) => stopListening());
+      stopped = true;
+      unlistenPromise.then((unlisten) => {
+        if (unlisten) unlisten();
+      });
     };
   }, [startWork]);
 

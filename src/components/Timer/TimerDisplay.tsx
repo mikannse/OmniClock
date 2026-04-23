@@ -12,8 +12,9 @@ export function TimerDisplay() {
   }
 
   const currentSegment = activeConfig.segments[timerState.currentSegmentIndex];
-  const progress = currentSegment
-    ? ((currentSegment.minutes * 60 - timerState.remainingSeconds) / (currentSegment.minutes * 60)) * 100
+  const segmentSeconds = (currentSegment?.minutes ?? 0) * 60;
+  const progress = segmentSeconds > 0
+    ? ((segmentSeconds - timerState.remainingSeconds) / segmentSeconds) * 100
     : 0;
 
   return (

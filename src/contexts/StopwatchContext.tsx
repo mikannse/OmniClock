@@ -62,12 +62,15 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
   const intervalRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const pausedTimeRef = useRef<number>(0);
+  const elapsedMsRef = useRef<number>(0);
+  const lastLapTimeRef = useRef<number>(0);
 
   useEffect(() => {
     if (state.isRunning) {
       startTimeRef.current = Date.now() - pausedTimeRef.current;
       intervalRef.current = window.setInterval(() => {
         const elapsed = Date.now() - startTimeRef.current;
+        elapsedMsRef.current = elapsed;
         dispatch({ type: 'TICK', payload: elapsed });
         pausedTimeRef.current = elapsed;
       }, 10);
@@ -101,19 +104,24 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
   const reset = useCallback(() => {
     dispatch({ type: 'RESET' });
     pausedTimeRef.current = 0;
+    elapsedMsRef.current = 0;
+    lastLapTimeRef.current = 0;
   }, []);
 
   const lap = useCallback(() => {
     if (!state.isRunning) return;
-    const lapTime = state.elapsedMs - state.lastLapTime;
+    const currentElapsed = elapsedMsRef.current;
+    const currentLastLap = lastLapTimeRef.current;
+    const lapTime = currentElapsed - currentLastLap;
     const newLap: StopwatchLap = {
       id: generateId(),
-      time: state.elapsedMs,
+      time: currentElapsed,
       lapTime,
     };
+    lastLapTimeRef.current = currentElapsed;
     dispatch({ type: 'ADD_LAP', payload: newLap });
-    dispatch({ type: 'SET_LAST_LAP_TIME', payload: state.elapsedMs });
-  }, [state.isRunning, state.elapsedMs, state.lastLapTime]);
+    dispatch({ type: 'SET_LAST_LAP_TIME', payload: currentElapsed });
+  }, [state.isRunning]);
 
   return (
     <StopwatchContext.Provider value={{ state, start, pause, reset, lap }}>

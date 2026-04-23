@@ -267,34 +267,34 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   );
 
   const startWork = useCallback(() => {
-    const seconds = settings.workMinutes * 60;
+    const seconds = settingsRef.current.workMinutes * 60;
     const now = Date.now();
     initialSecondsRef.current = seconds;
     startedAtRef.current = now;
     dispatch({ type: 'START', payload: { status: 'working', seconds, startedAt: now } });
     statusRef.current = 'working';
     playPomodoroSound('timerStart');
-  }, [playPomodoroSound, settings.workMinutes]);
+  }, [playPomodoroSound]);
 
   const startShortBreak = useCallback(() => {
-    const seconds = settings.shortBreakMinutes * 60;
+    const seconds = settingsRef.current.shortBreakMinutes * 60;
     const now = Date.now();
     initialSecondsRef.current = seconds;
     startedAtRef.current = now;
     dispatch({ type: 'START', payload: { status: 'shortBreak', seconds, startedAt: now } });
     statusRef.current = 'shortBreak';
     playPomodoroSound('timerStart');
-  }, [playPomodoroSound, settings.shortBreakMinutes]);
+  }, [playPomodoroSound]);
 
   const startLongBreak = useCallback(() => {
-    const seconds = settings.longBreakMinutes * 60;
+    const seconds = settingsRef.current.longBreakMinutes * 60;
     const now = Date.now();
     initialSecondsRef.current = seconds;
     startedAtRef.current = now;
     dispatch({ type: 'START', payload: { status: 'longBreak', seconds, startedAt: now } });
     statusRef.current = 'longBreak';
     playPomodoroSound('timerStart');
-  }, [playPomodoroSound, settings.longBreakMinutes]);
+  }, [playPomodoroSound]);
 
   const skip = useCallback(() => {
     if (intervalRef.current) {
