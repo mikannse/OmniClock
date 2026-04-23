@@ -115,7 +115,8 @@
     "about": "关于",
     "version": "版本",
     "checkUpdate": "检查更新",
-    "checking": "检查中..."
+    "checking": "检查中...",
+    "downloading": "下载中..."
   },
   "window": {
     "minimize": "最小化",

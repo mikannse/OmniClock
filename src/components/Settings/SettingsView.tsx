@@ -13,7 +13,7 @@ import { useTimerContext } from '../../contexts/TimerContext';
 export function SettingsView() {
   const { t } = useTranslation();
   const { settings, updateSettings } = useTimerContext();
-  const { checking, checkForUpdates } = useUpdateCheck();
+  const { checking, downloading, checkForUpdates } = useUpdateCheck();
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
 
   return (
@@ -165,9 +165,9 @@ export function SettingsView() {
             <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">{t('settings.version')}</div>
             <div className="flex items-center justify-between font-medium">
               <span>v{VERSION}</span>
-              <Button variant="ghost" size="sm" onClick={checkForUpdates} disabled={checking} className="h-7 px-2">
-                <RefreshCw className={cn('mr-1 h-3 w-3', checking && 'animate-spin')} />
-                {checking ? t('settings.checking') : t('settings.checkUpdate')}
+              <Button variant="ghost" size="sm" onClick={checkForUpdates} disabled={checking || downloading} className="h-7 px-2">
+                <RefreshCw className={cn('mr-1 h-3 w-3', (checking || downloading) && 'animate-spin')} />
+                {downloading ? t('settings.downloading') : checking ? t('settings.checking') : t('settings.checkUpdate')}
               </Button>
             </div>
           </div>

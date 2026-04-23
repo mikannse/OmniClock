@@ -115,7 +115,8 @@
     "about": "このアプリについて",
     "version": "バージョン",
     "checkUpdate": "アップデートを確認",
-    "checking": "確認中..."
+    "checking": "確認中...",
+    "downloading": "ダウンロード中..."
   },
   "window": {
     "minimize": "最小化",

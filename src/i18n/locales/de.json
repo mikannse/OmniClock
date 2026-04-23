@@ -115,7 +115,8 @@
     "about": "Über",
     "version": "Version",
     "checkUpdate": "Nach Updates suchen",
-    "checking": "Prüfe..."
+    "checking": "Prüfe...",
+    "downloading": "Herunterladen..."
   },
   "window": {
     "minimize": "Minimieren",

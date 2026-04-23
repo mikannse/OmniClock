@@ -12,6 +12,7 @@ interface UpdateInfo {
 export function useUpdateCheck() {
   const { t } = useTranslation();
   const [checking, setChecking] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
 
   const checkForUpdates = useCallback(async () => {
@@ -32,7 +33,20 @@ export function useUpdateCheck() {
         );
 
         if (confirmed) {
-          await update.downloadAndInstall();
+          setDownloading(true);
+          try {
+            await update.downloadAndInstall((event) => {
+              console.log('Download event:', event);
+            });
+          } catch (downloadError) {
+            console.error('Download failed:', downloadError);
+            await message(
+              t('updater.downloadFailedBody', { error: String(downloadError) }),
+              { title: t('updater.downloadFailedTitle'), kind: 'error' },
+            );
+          } finally {
+            setDownloading(false);
+          }
         }
       } else {
         setUpdateInfo({ available: false });
@@ -69,5 +83,5 @@ export function useUpdateCheck() {
     }
   }, [t]);
 
-  return { checking, updateInfo, checkForUpdates };
+  return { checking, downloading, updateInfo, checkForUpdates };
 }
