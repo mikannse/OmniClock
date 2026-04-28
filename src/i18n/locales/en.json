@@ -139,7 +139,9 @@
     "errorTitle": "Update check failed",
     "errorBody": "Failed to check for updates: {{error}}",
     "manifestMissingTitle": "Updater manifest unavailable",
-    "manifestMissingBody": "The release server does not currently provide a valid latest.json manifest. Publish a new signed release after generating updater artifacts."
+    "manifestMissingBody": "The release server does not currently provide a valid latest.json manifest. Publish a new signed release after generating updater artifacts.",
+    "relaunchTitle": "Update downloaded",
+    "relaunchBody": "The update has been downloaded and installed. Restart the app now to apply it?"
   },
   "common": {
     "confirm": "Confirm",

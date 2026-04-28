@@ -85,6 +85,11 @@ fn send_notification(app: AppHandle, title: String, body: String) -> Result<(), 
     send_notification_impl(&app, &title, &body)
 }
 
+#[tauri::command]
+fn relaunch_app(app: AppHandle) {
+    app.restart();
+}
+
 fn setup_tray(app: &AppHandle) -> Result<TrayIcon, tauri::Error> {
     let labels = default_tray_labels();
     let menu = create_tray_menu(app, &labels)?;
@@ -144,7 +149,7 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![update_tray_labels, send_notification])
+        .invoke_handler(tauri::generate_handler![update_tray_labels, send_notification, relaunch_app])
         .setup(|app| {
             #[cfg(not(mobile))]
             setup_tray(app.handle())?;

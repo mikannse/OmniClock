@@ -139,7 +139,9 @@
     "errorTitle": "更新检查失败",
     "errorBody": "检查更新失败：{{error}}",
     "manifestMissingTitle": "更新清单不可用",
-    "manifestMissingBody": "发布服务器当前没有提供有效的 latest.json。请在生成更新产物后重新发布一个带签名的新版本。"
+    "manifestMissingBody": "发布服务器当前没有提供有效的 latest.json。请在生成更新产物后重新发布一个带签名的新版本。",
+    "relaunchTitle": "更新已下载",
+    "relaunchBody": "更新已下载并安装。立即重启应用以生效？"
   },
   "common": {
     "confirm": "确认",

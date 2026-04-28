@@ -139,7 +139,9 @@
     "errorTitle": "Update-Prüfung fehlgeschlagen",
     "errorBody": "Updates konnten nicht geprüft werden: {{error}}",
     "manifestMissingTitle": "Update-Manifest nicht verfügbar",
-    "manifestMissingBody": "Der Release-Server liefert derzeit kein gültiges latest.json. Veröffentliche nach dem Erzeugen der Update-Artefakte eine neue signierte Version."
+    "manifestMissingBody": "Der Release-Server liefert derzeit kein gültiges latest.json. Veröffentliche nach dem Erzeugen der Update-Artefakte eine neue signierte Version.",
+    "relaunchTitle": "Update heruntergeladen",
+    "relaunchBody": "Das Update wurde heruntergeladen und installiert. Die App jetzt neu starten, um es anzuwenden?"
   },
   "common": {
     "confirm": "Bestätigen",

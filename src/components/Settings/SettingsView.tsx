@@ -15,7 +15,7 @@ export function SettingsView() {
   const { t } = useTranslation();
   const { settings, updateSettings } = useTimerContext();
   const { theme, setTheme } = useThemeContext();
-  const { checking, downloading, checkForUpdates } = useUpdateCheck();
+  const { checking, downloading, downloadProgress, checkForUpdates } = useUpdateCheck();
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
 
   return (
@@ -178,9 +178,17 @@ export function SettingsView() {
               <span>v{VERSION}</span>
               <Button variant="ghost" size="sm" onClick={checkForUpdates} disabled={checking || downloading} className="h-7 px-2">
                 <RefreshCw className={cn('mr-1 h-3 w-3', (checking || downloading) && 'animate-spin')} />
-                {downloading ? t('settings.downloading') : checking ? t('settings.checking') : t('settings.checkUpdate')}
+                {downloading ? `${t('settings.downloading')} ${downloadProgress}%` : checking ? t('settings.checking') : t('settings.checkUpdate')}
               </Button>
             </div>
+            {downloading && (
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-300"
+                  style={{ width: `${downloadProgress}%` }}
+                />
+              </div>
+            )}
           </div>
         </div>
       </section>

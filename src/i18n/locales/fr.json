@@ -139,7 +139,9 @@
     "errorTitle": "Échec de la vérification",
     "errorBody": "Impossible de vérifier les mises à jour : {{error}}",
     "manifestMissingTitle": "Manifeste de mise à jour indisponible",
-    "manifestMissingBody": "Le serveur de publication ne fournit pas de fichier latest.json valide. Publiez une nouvelle version signée après avoir généré les artefacts de mise à jour."
+    "manifestMissingBody": "Le serveur de publication ne fournit pas de fichier latest.json valide. Publiez une nouvelle version signée après avoir généré les artefacts de mise à jour.",
+    "relaunchTitle": "Mise à jour téléchargée",
+    "relaunchBody": "La mise à jour a été téléchargée et installée. Redémarrer l'application maintenant pour l'appliquer ?"
   },
   "common": {
     "confirm": "Confirmer",

@@ -139,7 +139,9 @@
     "errorTitle": "アップデート確認に失敗しました",
     "errorBody": "アップデートの確認に失敗しました: {{error}}",
     "manifestMissingTitle": "更新マニフェストがありません",
-    "manifestMissingBody": "配布サーバーに有効な latest.json がありません。更新アーティファクトを生成したうえで、署名付きの新しいリリースを公開してください。"
+    "manifestMissingBody": "配布サーバーに有効な latest.json がありません。更新アーティファクトを生成したうえで、署名付きの新しいリリースを公開してください。",
+    "relaunchTitle": "アップデートをダウンロードしました",
+    "relaunchBody": "アップデートがダウンロード・インストールされました。今すぐアプリを再起動して適用しますか？"
   },
   "common": {
     "confirm": "確認",

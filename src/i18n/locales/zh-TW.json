@@ -139,7 +139,9 @@
     "errorTitle": "檢查更新失敗",
     "errorBody": "檢查更新失敗：{{error}}",
     "manifestMissingTitle": "更新清單不可用",
-    "manifestMissingBody": "發佈伺服器目前沒有提供有效的 latest.json。請在產生更新產物後重新發佈帶簽章的新版本。"
+    "manifestMissingBody": "發佈伺服器目前沒有提供有效的 latest.json。請在產生更新產物後重新發佈帶簽章的新版本。",
+    "relaunchTitle": "更新已下載",
+    "relaunchBody": "更新已下載並安裝。立即重新啟動應用程式以生效？"
   },
   "common": {
     "confirm": "確認",

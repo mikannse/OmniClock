@@ -1,6 +1,7 @@
-﻿import { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ask, message } from '@tauri-apps/plugin-dialog';
 import { check } from '@tauri-apps/plugin-updater';
+import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 
 interface UpdateInfo {
@@ -13,10 +14,12 @@ export function useUpdateCheck() {
   const { t } = useTranslation();
   const [checking, setChecking] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
 
   const checkForUpdates = useCallback(async () => {
     setChecking(true);
+    setDownloadProgress(0);
 
     try {
       const update = await check();
@@ -34,10 +37,39 @@ export function useUpdateCheck() {
 
         if (confirmed) {
           setDownloading(true);
+          let totalLength = 0;
+          let downloadedLength = 0;
+
           try {
             await update.downloadAndInstall((event) => {
-              console.log('Download event:', event);
+              switch (event.event) {
+                case 'Started':
+                  totalLength = event.data.contentLength ?? 0;
+                  downloadedLength = 0;
+                  setDownloadProgress(0);
+                  break;
+                case 'Progress':
+                  downloadedLength += event.data.chunkLength;
+                  if (totalLength > 0) {
+                    setDownloadProgress(
+                      Math.min(100, Math.round((downloadedLength / totalLength) * 100)),
+                    );
+                  }
+                  break;
+                case 'Finished':
+                  setDownloadProgress(100);
+                  break;
+              }
             });
+
+            const shouldRelaunch = await ask(
+              t('updater.relaunchBody'),
+              { title: t('updater.relaunchTitle'), kind: 'info' },
+            );
+
+            if (shouldRelaunch) {
+              await invoke('relaunch_app');
+            }
           } catch (downloadError) {
             console.error('Download failed:', downloadError);
             await message(
@@ -46,6 +78,7 @@ export function useUpdateCheck() {
             );
           } finally {
             setDownloading(false);
+            setDownloadProgress(0);
           }
         }
       } else {
@@ -83,5 +116,5 @@ export function useUpdateCheck() {
     }
   }, [t]);
 
-  return { checking, downloading, updateInfo, checkForUpdates };
+  return { checking, downloading, downloadProgress, updateInfo, checkForUpdates };
 }
