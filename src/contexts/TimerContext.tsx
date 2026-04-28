@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useReducer, u
 import { message } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import type { Settings, TimerConfig, TimerSegment, TimerState } from '../types';
 import { setAutostart } from '../utils/autostart';
 import { playSound } from '../utils/sound';
@@ -66,10 +67,6 @@ const initialState: TimerContextState = {
 };
 
 const CLOSE_TO_TRAY_HINT_KEY = 'close_to_tray_hint_shown';
-
-function calculateTotalMinutes(segments: TimerSegment[]): number {
-  return segments.reduce((sum, segment) => sum + segment.minutes, 0);
-}
 
 function timerReducer(state: TimerContextState, action: TimerAction): TimerContextState {
   switch (action.type) {
@@ -144,6 +141,8 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const currentSegmentIndexRef = useRef<number>(0);
   const activeConfigRef = useRef<TimerConfig | null>(null);
   const segmentsLengthRef = useRef<number>(0);
+  const configsRef = useRef<TimerConfig[]>([]);
+  configsRef.current = state.configs;
 
   useEffect(() => {
     void loadConfigs().then((configs) => dispatch({ type: 'SET_CONFIGS', payload: configs }));
@@ -308,53 +307,67 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     async (config: Omit<TimerConfig, 'id' | 'createdAt'>) => {
       const newConfig: TimerConfig = {
         ...config,
-        totalMinutes: calculateTotalMinutes(config.segments),
         id: generateId(),
         createdAt: new Date().toISOString(),
       };
-      const newConfigs = [...state.configs, newConfig];
-      await saveConfigs(newConfigs);
-      dispatch({ type: 'SET_CONFIGS', payload: newConfigs });
+      const newConfigs = [...configsRef.current, newConfig];
+      try {
+        await saveConfigs(newConfigs);
+        dispatch({ type: 'SET_CONFIGS', payload: newConfigs });
+      } catch {
+        toast.error(t('common.saveFailed'));
+      }
     },
-    [state.configs],
+    [t],
   );
 
   const updateConfig = useCallback(
     async (id: string, config: Partial<TimerConfig>) => {
-      const newConfigs = state.configs.map((currentConfig) => {
+      const newConfigs = configsRef.current.map((currentConfig) => {
         if (currentConfig.id !== id) {
           return currentConfig;
         }
-
-        const segments = config.segments ?? currentConfig.segments;
-        return {
-          ...currentConfig,
-          ...config,
-          segments,
-          totalMinutes: calculateTotalMinutes(segments),
-        };
+        return { ...currentConfig, ...config };
       });
 
-      await saveConfigs(newConfigs);
-      dispatch({ type: 'SET_CONFIGS', payload: newConfigs });
+      try {
+        await saveConfigs(newConfigs);
+        dispatch({ type: 'SET_CONFIGS', payload: newConfigs });
+      } catch {
+        toast.error(t('common.saveFailed'));
+      }
     },
-    [state.configs],
+    [t],
   );
 
   const deleteConfig = useCallback(
     async (id: string) => {
-      const newConfigs = state.configs.filter((config) => config.id !== id);
-      await saveConfigs(newConfigs);
-      dispatch({ type: 'SET_CONFIGS', payload: newConfigs });
+      const newConfigs = configsRef.current.filter((config) => config.id !== id);
+      try {
+        await saveConfigs(newConfigs);
+        dispatch({ type: 'SET_CONFIGS', payload: newConfigs });
+      } catch {
+        toast.error(t('common.saveFailed'));
+      }
     },
-    [state.configs],
+    [t],
   );
 
   const startTimer = useCallback(
     (configId: string) => {
+      if (state.status === 'running') return;
       const config = state.configs.find((item) => item.id === configId);
       if (!config || config.segments.length === 0) {
         return;
+      }
+
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
 
       const seconds = minutesToSeconds(config.segments[0].minutes);
@@ -370,7 +383,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       });
       playTimerSound('timerStart');
     },
-    [playTimerSound, state.configs],
+    [playTimerSound, state.configs, state.status],
   );
 
   const pauseTimer = useCallback(() => {
@@ -382,8 +395,11 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resumeTimer = useCallback(() => {
+    if (state.status !== 'paused') return;
+    const elapsedMs = (initialSecondsRef.current - state.remainingSeconds) * 1000;
+    startedAtRef.current = Date.now() - elapsedMs;
     dispatch({ type: 'RESUME' });
-  }, []);
+  }, [state.status, state.remainingSeconds]);
 
   const resetTimer = useCallback(() => {
     if (intervalRef.current) {
@@ -429,10 +445,19 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const updateSettings = useCallback(
     async (newSettings: Partial<Settings>) => {
       const updatedSettings = { ...state.settings, ...newSettings };
-      await saveSettings(updatedSettings);
+      try {
+        await saveSettings(updatedSettings);
+      } catch {
+        toast.error(t('common.saveFailed'));
+        return;
+      }
 
       if (newSettings.autostartEnabled !== undefined) {
-        await setAutostart(newSettings.autostartEnabled);
+        try {
+          await setAutostart(newSettings.autostartEnabled);
+        } catch {
+          toast.error(t('common.saveFailed'));
+        }
       }
 
       dispatch({ type: 'SET_SETTINGS', payload: updatedSettings });

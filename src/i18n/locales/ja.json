@@ -147,6 +147,7 @@
     "delete": "削除",
     "edit": "編集",
     "save": "保存",
+    "saveFailed": "保存に失敗しました",
     "ready": "準備完了",
     "running": "実行中",
     "paused": "一時停止中",

@@ -9,10 +9,12 @@ import { useUpdateCheck } from '@/hooks/useUpdateCheck';
 import { cn } from '@/lib/utils';
 import { VERSION } from '@/utils/version';
 import { useTimerContext } from '../../contexts/TimerContext';
+import { useThemeContext } from '../../contexts/ThemeContext';
 
 export function SettingsView() {
   const { t } = useTranslation();
   const { settings, updateSettings } = useTimerContext();
+  const { theme, setTheme } = useThemeContext();
   const { checking, downloading, checkForUpdates } = useUpdateCheck();
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
 
@@ -91,10 +93,13 @@ export function SettingsView() {
         <h3 className="text-sm font-medium">{t('settings.theme')}</h3>
         <div className="grid grid-cols-3 gap-2">
           <button
-            onClick={() => updateSettings({ theme: 'light' })}
+            onClick={() => {
+              setTheme('light');
+              updateSettings({ theme: 'light' });
+            }}
             className={cn(
               'flex flex-col items-center gap-2 rounded-lg border p-3 transition-colors',
-              settings.theme === 'light'
+              theme === 'light'
                 ? 'border-primary bg-secondary text-foreground'
                 : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             )}
@@ -103,10 +108,13 @@ export function SettingsView() {
             <span className="text-xs">{t('settings.light')}</span>
           </button>
           <button
-            onClick={() => updateSettings({ theme: 'dark' })}
+            onClick={() => {
+              setTheme('dark');
+              updateSettings({ theme: 'dark' });
+            }}
             className={cn(
               'flex flex-col items-center gap-2 rounded-lg border p-3 transition-colors',
-              settings.theme === 'dark'
+              theme === 'dark'
                 ? 'border-primary bg-secondary text-foreground'
                 : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             )}
@@ -115,10 +123,13 @@ export function SettingsView() {
             <span className="text-xs">{t('settings.dark')}</span>
           </button>
           <button
-            onClick={() => updateSettings({ theme: 'system' })}
+            onClick={() => {
+              setTheme('system');
+              updateSettings({ theme: 'system' });
+            }}
             className={cn(
               'flex flex-col items-center gap-2 rounded-lg border p-3 transition-colors',
-              settings.theme === 'system'
+              theme === 'system'
                 ? 'border-primary bg-secondary text-foreground'
                 : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             )}

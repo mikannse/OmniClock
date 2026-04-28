@@ -7,7 +7,6 @@ export interface TimerSegment {
 export interface TimerConfig {
   id: string;
   name: string;
-  totalMinutes: number;
   segments: TimerSegment[];
   createdAt: string;
 }

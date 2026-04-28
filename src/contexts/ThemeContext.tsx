@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useTimerContext } from './TimerContext';
 
 type Theme = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
   theme: Theme;
   resolvedTheme: 'light' | 'dark';
+  setTheme: (theme: Theme) => void;
 }
+
+const STORAGE_KEY = 'theme';
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
@@ -17,11 +19,23 @@ function getSystemTheme(): 'light' | 'dark' {
   return 'light';
 }
 
+function getStoredTheme(): Theme {
+  if (typeof window === 'undefined') return 'system';
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored === 'light' || stored === 'dark' || stored === 'system') {
+    return stored;
+  }
+  return 'system';
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const { settings } = useTimerContext();
+  const [theme, setThemeState] = useState<Theme>(getStoredTheme);
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(getSystemTheme);
 
-  const theme = settings.theme || 'system';
+  const setTheme = (newTheme: Theme) => {
+    localStorage.setItem(STORAGE_KEY, newTheme);
+    setThemeState(newTheme);
+  };
 
   useEffect(() => {
     const root = document.documentElement;
@@ -50,7 +64,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [theme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme }}>
+    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

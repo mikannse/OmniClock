@@ -57,7 +57,7 @@ export function TimerConfigForm({ editConfig, onSave, onCancel }: TimerConfigFor
     if (editConfig) {
       await updateConfig(editConfig.id, { name, segments: validSegments });
     } else {
-      await addConfig({ name, segments: validSegments, totalMinutes });
+      await addConfig({ name, segments: validSegments });
     }
 
     onSave?.();

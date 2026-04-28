@@ -25,9 +25,18 @@ npm run tauri build
 npm run dev
 npm run build
 
-# Update release version (run before tagging)
-npm run release:prepare -- 0.4.6
+# Update release version (run before tagging — bumps package.json + tauri.conf.json + Cargo.toml together)
+npm run release:prepare -- X.Y.Z
 ```
+
+### Release Process
+Releases are driven by git tags. Pushing a `v*` tag triggers `.github/workflows/release.yml`, which:
+1. Runs the `verify` job — fails the build if `package.json` and `tauri.conf.json` versions disagree, or if `bundle.createUpdaterArtifacts` is not `true`.
+2. Builds for `macos-latest`, `ubuntu-22.04`, `windows-latest` via `tauri-apps/tauri-action@v0`.
+3. Signs updater artifacts using `TAURI_SIGNING_PRIVATE_KEY` (matches the `pubkey` in `tauri.conf.json`).
+4. Publishes a GitHub Release. The updater plugin polls `releases/latest/download/latest.json`.
+
+Always bump versions with `npm run release:prepare -- X.Y.Z` — it keeps all three version files in sync. Hand-editing one will fail the verify job.
 
 ## Architecture
 
@@ -44,9 +53,26 @@ npm run release:prepare -- 0.4.6
 ### State Management
 - `TimerContext` (`src/contexts/TimerContext.tsx`) - Global state for timer configs, settings, and active timer state
 - `PomodoroContext` (`src/contexts/PomodoroContext.tsx`) - Pomodoro timer state with work/break cycle management
-- `ThemeContext` (`src/contexts/ThemeContext.tsx`) - Theme resolution (light/dark/system)
+- `CountdownContext` (`src/contexts/CountdownContext.tsx`) - Simple countdown state
+- `StopwatchContext` (`src/contexts/StopwatchContext.tsx`) - Stopwatch with lap recording
+- `ThemeContext` (`src/contexts/ThemeContext.tsx`) - Theme resolution (light/dark/system), independent of other contexts
 - All use `useReducer` with explicit action types for predictable state updates
 - Refs used for interval tracking and callback stability in timers
+
+### Timer Accuracy (Background Tab Safety)
+**Critical**: Browsers throttle `setInterval` to ~1Hz minimum in background tabs, breaking tick-based countdowns. All countdown-style timers (Timer, Pomodoro, Countdown) use a hybrid pattern:
+- **Display tick**: `setInterval` updates `remainingSeconds` every 100ms based on `Date.now() - startedAt` (re-syncs on each tick — never accumulates drift).
+- **Transition scheduling**: A separate `setTimeout` is scheduled for the exact end timestamp. This fires the auto-transition (segment change, work→break, completion) even if the display tick is throttled.
+- State carries `startedAt: number` and uses refs (`startedAtRef`, `initialSecondsRef`, `settingsRef`) to avoid stale closures in the timeout callback.
+- Stopwatch uses a simpler `Date.now()` elapsed calculation (no transitions to schedule).
+
+When modifying timer logic, both the interval (display) and timeout (transition) must be updated together — otherwise the UI and the actual completion event will diverge.
+
+### Timer Start/Resume Guards
+Timer context functions must defend against race conditions:
+- `startTimer` clears any existing `intervalRef` / `timeoutRef` before starting and guards with `if (state.status === 'running') return`.
+- `resumeTimer` recalculates `startedAtRef` from `Date.now() - elapsedMs` so the timer does not jump forward after pause.
+- `configsRef` mirrors `state.configs` so `addConfig`/`updateConfig`/`deleteConfig` callbacks do not need `state.configs` in their dependency arrays, preventing stale closures.
 
 ### Layout Structure
 - Sidebar navigation (left, ~224px) with logo, nav items, version footer
@@ -66,9 +92,8 @@ Each feature module is in `src/components/{Module}/`:
 interface TimerConfig {
   id: string;
   name: string;
-  totalMinutes: number;
   segments: TimerSegment[];
-  createdAt: number;
+  createdAt: string;
 }
 interface TimerSegment {
   id: string;
@@ -79,6 +104,8 @@ interface Settings {
   notificationsEnabled: boolean;
   soundEnabled: boolean;
   theme: 'light' | 'dark' | 'system';
+  autostartEnabled: boolean;
+  closeToTray: boolean;
 }
 interface PomodoroSettings {
   workMinutes: number;
@@ -114,6 +141,7 @@ type ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings';
 - `data/settings.json` - Settings object (includes theme preference)
 - `data/pomodoro.json` - PomodoroSettings object
 - Auto-creates `OmniClock/data/` directory on first load
+- **Runtime validation**: All load functions validate JSON structure with `isValidTimerConfig`, `isValidSettings`, `isValidPomodoroSettings` before returning data. Corrupted files fall back to safe defaults (empty array or default settings) instead of throwing.
 
 ### Internationalization (src/i18n/)
 - 6 languages: English, Chinese (Simplified/Traditional), Japanese, French, German
@@ -143,6 +171,12 @@ type ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings';
 - `data-tauri-drag-region` attribute enables native window dragging
 - `isMaximized` state tracks window state for correct icon display
 - `shrink-0` prevents title bar from shrinking in flex layout
+- Reads `settings.closeToTray` from `TimerContext` to decide whether close button hides or quits the app
+
+### Error Boundary (src/components/ErrorBoundary.tsx)
+- Class-based React Error Boundary wrapping `TrayEventHandler` and `AppContent`
+- Fallback UI shows "Something went wrong" with a reload button
+- Caught errors are logged to `console.error`
 
 ### Platform Differences
 - **Desktop**: Custom title bar, system tray, window controls
@@ -151,14 +185,15 @@ type ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings';
 - Rust backend uses `#[cfg(not(mobile))]` for desktop-only code
 
 ### Platform-Specific Implementation
-- **Notifications**: macOS uses AppleScript (`osascript -e "display notification..."`) via `Command::new("osascript")` to avoid Tauri plugin hash issue. Windows/Linux use `tauri_plugin_notification::NotificationExt`. Frontend calls `invoke('send_notification', { title, body })`.
-- **Autostart**: Uses `tauri_plugin_autostart::launcher::LaunchAgent` (cross-platform, not `MacosLauncher::LaunchAgent`)
-- **System tray**: Only initialized on desktop (`#[cfg(not(mobile))]`)
+- **Notifications**: macOS uses AppleScript (`osascript -e "display notification..."`) via `Command::new("osascript")` to avoid a Tauri plugin issue on macOS. Windows/Linux use `tauri_plugin_notification::NotificationExt`. Frontend always calls `invoke('send_notification', { title, body })` — the platform branch lives in the Rust command.
+- **Autostart**: Uses `tauri_plugin_autostart::MacosLauncher::LaunchAgent`. The name is misleading — this enum variant works cross-platform; do not change it to `launcher::LaunchAgent` or the build will break on the GitHub Actions runner.
+- **System tray**: Only initialized on desktop (`#[cfg(not(mobile))]`).
+- **macOS signing**: DMGs built locally (or via GitHub Actions without an Apple Developer ID) are unsigned and unnotarized. Users will see "App is damaged and can't be opened." Workaround: `xattr -cr "/Applications/Omni Clock.app"` after install. Proper fix requires Apple Developer ID + notarization — not currently configured.
 
 ### Tauri Capabilities (src-tauri/capabilities/default.json)
 Capabilities enable permissions for Tauri APIs:
 - `core:default`, `core:event:default`
-- `core:window:default`, `core:window:allow-minimize`, `core:window:allow-maximize`, `core:window:allow-unmaximize`, `core:window:allow-is-maximized`, `core:window:allow-start-dragging`, `core:window:allow-close`, `core:window:allow-show`, `core:window:allow-hide`, `core:window:allow-set-focus`
+- `core:window:default` plus allow minimize/maximize/unmaximize/is-maximized/start-dragging/close/show/hide/set-focus
 - `fs:default`, `fs:allow-appdata-read-recursive`, `fs:allow-appdata-write-recursive`
 - `notification:default`, `opener:default`
 
@@ -203,6 +238,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
 
 ### Rust Backend (src-tauri/src/lib.rs)
+- Cargo package is `omni-clock`; library crate is `omni_clock_lib`. `main.rs` is a thin wrapper that calls `omni_clock_lib::run()`. The binary, process name, and macOS bundle executable all derive from this — do not rename without updating `main.rs` and the lib `name` in `Cargo.toml` together.
 - System tray setup with context menu (Show/Hide/Start Work/Quit)
 - Tray icon using `tray-icon` feature
 - Emits `tray-start-work` event to frontend via Tauri events API
@@ -217,9 +253,16 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
 
 ### Provider Hierarchy
 ```
-TimerProvider
-  └── PomodoroProvider
-        └── ThemeProvider
-              └── TrayEventHandler
-                    └── AppContent
+ThemeProvider
+  └── TimerProvider
+        └── PomodoroProvider
+              └── StopwatchProvider
+                    └── CountdownProvider
+                          └── CustomTitleBar
+                          └── ErrorBoundary
+                                └── TrayEventHandler
+                                └── AppContent
 ```
+- `ThemeProvider` is at the outermost level and is fully independent (manages theme via localStorage key `'theme'`, no Context dependencies).
+- `TimerProvider` is next because `CustomTitleBar` reads `settings.closeToTray` from it.
+- `TrayEventHandler` uses `usePomodoroContext`, so it must be inside `PomodoroProvider`.

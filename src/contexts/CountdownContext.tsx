@@ -141,6 +141,15 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const start = useCallback(() => {
+    if (state.isRunning) return;
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     if (state.isEditing && state.timeLeft > 0) {
       dispatch({ type: 'SET_EDITING', payload: false });
     }
@@ -149,7 +158,7 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
     startedAtRef.current = now;
     dispatch({ type: 'START', payload: { startedAt: now } });
     playSound('timerStart');
-  }, [state.isEditing, state.timeLeft]);
+  }, [state.isEditing, state.isRunning, state.timeLeft]);
 
   const pause = useCallback(() => {
     if (!state.isRunning) return;

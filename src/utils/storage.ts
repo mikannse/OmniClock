@@ -6,6 +6,50 @@ const CONFIG_FILE = 'configs.json';
 const SETTINGS_FILE = 'settings.json';
 const POMODORO_FILE = 'pomodoro.json';
 
+function isValidTimerSegment(item: unknown): boolean {
+  if (!item || typeof item !== 'object') return false;
+  const seg = item as Record<string, unknown>;
+  return (
+    typeof seg.id === 'string' &&
+    typeof seg.name === 'string' &&
+    typeof seg.minutes === 'number'
+  );
+}
+
+function isValidTimerConfig(item: unknown): boolean {
+  if (!item || typeof item !== 'object') return false;
+  const config = item as Record<string, unknown>;
+  return (
+    typeof config.id === 'string' &&
+    typeof config.name === 'string' &&
+    Array.isArray(config.segments) &&
+    config.segments.every(isValidTimerSegment)
+  );
+}
+
+function isValidSettings(item: unknown): item is Settings {
+  if (!item || typeof item !== 'object') return false;
+  const s = item as Record<string, unknown>;
+  return (
+    typeof s.notificationsEnabled === 'boolean' &&
+    typeof s.soundEnabled === 'boolean' &&
+    typeof s.theme === 'string' &&
+    typeof s.autostartEnabled === 'boolean' &&
+    typeof s.closeToTray === 'boolean'
+  );
+}
+
+function isValidPomodoroSettings(item: unknown): item is PomodoroSettings {
+  if (!item || typeof item !== 'object') return false;
+  const s = item as Record<string, unknown>;
+  return (
+    typeof s.workMinutes === 'number' &&
+    typeof s.shortBreakMinutes === 'number' &&
+    typeof s.longBreakMinutes === 'number' &&
+    typeof s.longBreakInterval === 'number'
+  );
+}
+
 const defaultSettings: Settings = {
   notificationsEnabled: true,
   soundEnabled: true,
@@ -41,7 +85,12 @@ export async function loadConfigs(): Promise<TimerConfig[]> {
       return [];
     }
     const content = await readTextFile(filePath, { baseDir: BaseDirectory.AppData });
-    return JSON.parse(content) as TimerConfig[];
+    const parsed = JSON.parse(content);
+    if (Array.isArray(parsed) && parsed.every(isValidTimerConfig)) {
+      return parsed;
+    }
+    console.error('Invalid configs data structure, returning empty array');
+    return [];
   } catch (error) {
     console.error('Failed to load configs:', error);
     return [];
@@ -68,7 +117,12 @@ export async function loadSettings(): Promise<Settings> {
       return defaultSettings;
     }
     const content = await readTextFile(filePath, { baseDir: BaseDirectory.AppData });
-    return { ...defaultSettings, ...JSON.parse(content) } as Settings;
+    const parsed = JSON.parse(content);
+    if (isValidSettings(parsed)) {
+      return { ...defaultSettings, ...parsed };
+    }
+    console.error('Invalid settings data structure, returning defaults');
+    return defaultSettings;
   } catch (error) {
     console.error('Failed to load settings:', error);
     return defaultSettings;
@@ -95,7 +149,12 @@ export async function loadPomodoroSettings(): Promise<PomodoroSettings> {
       return defaultPomodoroSettings;
     }
     const content = await readTextFile(filePath, { baseDir: BaseDirectory.AppData });
-    return { ...defaultPomodoroSettings, ...JSON.parse(content) } as PomodoroSettings;
+    const parsed = JSON.parse(content);
+    if (isValidPomodoroSettings(parsed)) {
+      return { ...defaultPomodoroSettings, ...parsed };
+    }
+    console.error('Invalid pomodoro settings data structure, returning defaults');
+    return defaultPomodoroSettings;
   } catch (error) {
     console.error('Failed to load pomodoro settings:', error);
     return defaultPomodoroSettings;

@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import type { PomodoroSettings, PomodoroState } from '../types';
 import { useTimerContext } from './TimerContext';
 import { playSound } from '../utils/sound';
@@ -261,9 +262,13 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     async (newSettings: Partial<PomodoroSettings>) => {
       const updated = { ...settings, ...newSettings };
       setSettings(updated);
-      await savePomodoroSettings(updated);
+      try {
+        await savePomodoroSettings(updated);
+      } catch {
+        toast.error(t('common.saveFailed'));
+      }
     },
-    [settings],
+    [settings, t],
   );
 
   const startWork = useCallback(() => {

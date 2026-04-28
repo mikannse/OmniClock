@@ -89,17 +89,22 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
 
   const start = useCallback(() => {
     if (state.isRunning) return;
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     startTimeRef.current = Date.now();
+    pausedTimeRef.current = 0;
     dispatch({ type: 'START' });
     playSound('timerStart');
   }, [state.isRunning]);
 
   const pause = useCallback(() => {
     if (!state.isRunning) return;
-    pausedTimeRef.current = state.elapsedMs;
+    pausedTimeRef.current = elapsedMsRef.current;
     dispatch({ type: 'PAUSE' });
     playSound('hover');
-  }, [state.isRunning, state.elapsedMs]);
+  }, [state.isRunning]);
 
   const reset = useCallback(() => {
     dispatch({ type: 'RESET' });

@@ -5,6 +5,7 @@ import { Clock, Coffee, Hourglass, Settings, Timer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CountdownView } from './components/Countdown/CountdownView';
 import { CustomTitleBar } from './components/CustomTitleBar';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { PomodoroView } from './components/Pomodoro/PomodoroView';
 import { SettingsView } from './components/Settings/SettingsView';
 import { StopwatchView } from './components/Stopwatch/StopwatchView';
@@ -138,21 +139,23 @@ function AppContent() {
 
 function App() {
   return (
-    <TimerProvider>
-      <PomodoroProvider>
-        <ThemeProvider>
+    <ThemeProvider>
+      <TimerProvider>
+        <PomodoroProvider>
           <StopwatchProvider>
             <CountdownProvider>
               <div className="flex h-screen flex-col overflow-hidden">
                 <CustomTitleBar />
-                <TrayEventHandler />
-                <AppContent />
+                <ErrorBoundary>
+                  <TrayEventHandler />
+                  <AppContent />
+                </ErrorBoundary>
               </div>
             </CountdownProvider>
           </StopwatchProvider>
-        </ThemeProvider>
-      </PomodoroProvider>
-    </TimerProvider>
+        </PomodoroProvider>
+      </TimerProvider>
+    </ThemeProvider>
   );
 }
 

@@ -147,6 +147,7 @@
     "delete": "Supprimer",
     "edit": "Modifier",
     "save": "Enregistrer",
+    "saveFailed": "Échec de l'enregistrement",
     "ready": "Prêt",
     "running": "En cours",
     "paused": "En pause",

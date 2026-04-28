@@ -147,6 +147,7 @@
     "delete": "删除",
     "edit": "编辑",
     "save": "保存",
+    "saveFailed": "保存失败",
     "ready": "就绪",
     "running": "运行中",
     "paused": "已暂停",

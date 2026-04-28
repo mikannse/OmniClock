@@ -147,6 +147,7 @@
     "delete": "Delete",
     "edit": "Edit",
     "save": "Save",
+    "saveFailed": "Save failed",
     "ready": "Ready",
     "running": "Running",
     "paused": "Paused",
