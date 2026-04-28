@@ -1,7 +1,7 @@
 {
   "name": "omni-clock",
   "private": true,
-  "version": "0.6.4",
+  "version": "0.7.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -31,7 +31,6 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-i18next": "^17.0.2",
-    "react-router-dom": "^7.13.2",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0"
   },
