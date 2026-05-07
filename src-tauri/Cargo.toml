@@ -1,6 +1,6 @@
 [package]
 name = "omni-clock"
-version = "0.7.2"
+version = "0.8.1"
 description = "Omni Clock desktop app"
 authors = ["mikannse"]
 edition = "2021"

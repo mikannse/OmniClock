@@ -271,11 +271,42 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
             warning: remaining <= 30 && remaining > 0,
           },
         });
+
+        if (remaining === 0 && timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+          scheduleSegmentTransition(state.currentSegmentIndex);
+        }
       };
 
       updateDisplay();
       intervalRef.current = window.setInterval(updateDisplay, 100);
-    } else if (intervalRef.current) {
+
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          updateDisplay();
+          if (state.status === 'running') {
+            if (timeoutRef.current) {
+              clearTimeout(timeoutRef.current);
+              timeoutRef.current = null;
+            }
+            scheduleSegmentTransition(state.currentSegmentIndex);
+          }
+        }
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }
+
+    if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
@@ -286,7 +317,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         intervalRef.current = null;
       }
     };
-  }, [state.status, state.startedAt]);
+  }, [state.status, state.startedAt, state.currentSegmentIndex, scheduleSegmentTransition]);
 
   useEffect(() => {
     if (state.status === 'running' && state.startedAt !== null && state.activeConfig) {

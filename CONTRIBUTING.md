@@ -9,6 +9,8 @@ Thank you for your interest in contributing to Omni Clock!
 3. Install dependencies: `npm install`
 4. Start development: `npm run tauri dev`
 
+For detailed setup instructions, platform-specific requirements, and debugging tips, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
 ## Development Workflow
 
 1. Create a new branch for your feature or fix:
@@ -20,18 +22,23 @@ Thank you for your interest in contributing to Omni Clock!
 
 2. Make your changes following our coding standards
 
-3. Commit your changes with a clear message:
+3. Run type checks to ensure there are no TypeScript errors:
+   ```bash
+   npx tsc --noEmit
+   ```
+
+4. Commit your changes with a clear message:
    ```bash
    git commit -m "feat: add new feature"
    git commit -m "fix: resolve issue with timer"
    ```
 
-4. Push to your fork:
+5. Push to your fork:
    ```bash
    git push origin feature/your-feature-name
    ```
 
-5. Open a Pull Request
+6. Open a Pull Request
 
 ## Coding Standards
 
@@ -40,6 +47,7 @@ Thank you for your interest in contributing to Omni Clock!
 - Follow existing code formatting (Prettier)
 - Add TypeScript types for all function parameters and return values
 - Write descriptive commit messages (see below)
+- When modifying timer logic, read the **Timer Accuracy** section in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) first
 
 ## Commit Message Format
 
@@ -73,7 +81,11 @@ docs: update README for new features
 Before creating an issue, please:
 1. Search existing issues
 2. Update to the latest version
-3. Provide clear reproduction steps
+3. Provide clear reproduction steps, including:
+   - Operating system and version
+   - App version (shown in the sidebar footer)
+   - Steps to reproduce
+   - Expected vs actual behavior
 
 ## Suggesting Features
 
@@ -81,6 +93,12 @@ We welcome feature suggestions! Please:
 1. Describe the feature and its use case
 2. Explain why it would benefit the project
 3. Provide any relevant examples or references
+
+## Resources
+
+- [Architecture Overview](docs/ARCHITECTURE.md) — Understand the system design
+- [Development Guide](docs/DEVELOPMENT.md) — Setup, debugging, and code patterns
+- [Deployment Guide](docs/DEPLOYMENT.md) — How releases are built and published
 
 ## License
 

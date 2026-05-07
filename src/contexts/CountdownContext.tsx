@@ -102,11 +102,40 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
         const remaining = Math.max(0, initialSecondsRef.current - elapsed);
 
         dispatch({ type: 'TICK', payload: { timeLeft: remaining } });
+
+        if (remaining === 0 && timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+          scheduleEndTimeout();
+        }
       };
 
       updateDisplay();
       intervalRef.current = window.setInterval(updateDisplay, 100);
-    } else if (intervalRef.current) {
+
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible' && state.isRunning) {
+          updateDisplay();
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+          scheduleEndTimeout();
+        }
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }
+
+    if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
@@ -117,7 +146,7 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
         intervalRef.current = null;
       }
     };
-  }, [state.isRunning, state.startedAt]);
+  }, [state.isRunning, state.startedAt, scheduleEndTimeout]);
 
   useEffect(() => {
     if (state.isRunning && state.startedAt !== null && initialSecondsRef.current > 0) {

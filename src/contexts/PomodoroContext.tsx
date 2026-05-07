@@ -228,11 +228,41 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
           type: 'TICK',
           payload: { remainingSeconds: remaining, totalElapsedSeconds: total },
         });
+
+        if (remaining === 0 && timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+          playPomodoroSound('timerEnd');
+          autoTransition();
+        }
       };
 
       updateDisplay();
       intervalRef.current = window.setInterval(updateDisplay, 100);
-    } else if (intervalRef.current) {
+
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible' && state.status !== 'idle') {
+          updateDisplay();
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+          scheduleEndTimeout(startedAtRef.current, initialSecondsRef.current);
+        }
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }
+
+    if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
@@ -243,7 +273,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
         intervalRef.current = null;
       }
     };
-  }, [state.status, state.startedAt]);
+  }, [state.status, state.startedAt, autoTransition, playPomodoroSound, scheduleEndTimeout]);
 
   useEffect(() => {
     if (state.status !== 'idle' && state.startedAt !== null && initialSecondsRef.current > 0) {

@@ -25,8 +25,12 @@ npm run tauri build
 npm run dev
 npm run build
 
-# Update release version (run before tagging — bumps package.json + tauri.conf.json + Cargo.toml together)
-npm run release:prepare -- X.Y.Z
+# Update release version (run before tagging)
+# NOTE: scripts/release.mjs is currently missing. Bump manually in:
+#   - package.json (version field)
+#   - src-tauri/tauri.conf.json (version field)
+#   - src-tauri/Cargo.toml (version field)
+# Then commit, tag, and push.
 ```
 
 ### Release Process
@@ -36,7 +40,7 @@ Releases are driven by git tags. Pushing a `v*` tag triggers `.github/workflows/
 3. Signs updater artifacts using `TAURI_SIGNING_PRIVATE_KEY` (matches the `pubkey` in `tauri.conf.json`).
 4. Publishes a GitHub Release. The updater plugin polls `releases/latest/download/latest.json`.
 
-Always bump versions with `npm run release:prepare -- X.Y.Z` — it keeps all three version files in sync. Hand-editing one will fail the verify job.
+Always bump versions consistently across all three files. Hand-editing only one will fail the verify job.
 
 ## Architecture
 
@@ -68,6 +72,15 @@ Always bump versions with `npm run release:prepare -- X.Y.Z` — it keeps all th
 
 When modifying timer logic, both the interval (display) and timeout (transition) must be updated together — otherwise the UI and the actual completion event will diverge.
 
+### Timer Sleep/Resume Resilience
+**Critical**: When the computer sleeps or the app is hidden, `setInterval` and `setTimeout` are frozen by the OS. After resuming, `Date.now()` is accurate, but the `setTimeout` callback may not fire promptly (or at all), leaving the timer stuck and state transitions unhandled.
+
+All countdown-style timers implement two safety nets:
+- **Display-tick fallback** — Inside the `setInterval` callback (`updateDisplay`), when `remaining === 0` is calculated, the code immediately clears `timeoutRef` and calls the transition function directly. This catches missed timeouts even if `setTimeout` was lost during sleep.
+- **`visibilitychange` listener** — `document.addEventListener('visibilitychange', ...)` fires when the app returns from sleep/background. On becoming visible, it force-recalculates the current time, clears the old `setTimeout`, and re-schedules the transition. Because `Date.now()` has jumped forward, the re-scheduled `delay <= 0` branch immediately processes any overdue transitions (including skipping multiple segments).
+
+Stopwatch does not need this fix because it has no scheduled state transitions — it only computes elapsed time, which naturally catches up after sleep.
+
 ### Timer Start/Resume Guards
 Timer context functions must defend against race conditions:
 - `startTimer` clears any existing `intervalRef` / `timeoutRef` before starting and guards with `if (state.status === 'running') return`.
@@ -86,6 +99,11 @@ Each feature module is in `src/components/{Module}/`:
 - `Stopwatch/` - Standard stopwatch with lap recording (StopwatchView)
 - `Countdown/` - Simple countdown with circular progress ring (CountdownView)
 - `Settings/` - Notification, sound, and theme toggles (SettingsView)
+
+### Other Key Files
+- `src/hooks/useUpdateCheck.ts` — Updater check/download/install hook with progress tracking
+- `src/utils/version.ts` — Exports `VERSION` constant from `package.json`
+- `src/lib/utils.ts` — `cn()` helper (clsx + tailwind-merge)
 
 ### Data Models (src/types/index.ts)
 ```typescript
@@ -148,6 +166,13 @@ type ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings';
 - Language stored in localStorage under 'language' key
 - `changeLanguage(code)` function exported for language switching
 - Translation keys: app, nav, timer, pomodoro, stopwatch, countdown, settings, common
+
+### Auto-Updater
+- Frontend: `src/hooks/useUpdateCheck.ts` calls `check()` from `@tauri-apps/plugin-updater`, shows a native dialog to confirm, then calls `downloadAndInstall()` with a progress callback.
+- Download progress is tracked via `Started` / `Progress` / `Finished` events and shown in `SettingsView` as a percentage + progress bar.
+- After successful install, a dialog prompts the user to restart. If confirmed, it calls `invoke('relaunch_app')`.
+- Backend: `src-tauri/src/lib.rs` registers a `relaunch_app` command that calls `app.restart()`.
+- **macOS caveat**: The app is unsigned. macOS Gatekeeper may block `downloadAndInstall` from replacing the `.app` bundle. Errors are surfaced via dialog, but reliable auto-updates on macOS require Apple Developer ID + notarization.
 
 ### Tauri Plugins Used
 - `tauri-plugin-fs` - File system access for JSON persistence

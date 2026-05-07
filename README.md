@@ -41,7 +41,13 @@ npm run tauri dev
 | `npm run tauri dev` | Start the desktop app in development mode |
 | `npm run tauri build` | Build the production app |
 | `npm run build` | Build the frontend bundle |
-| `npm run release:prepare -- 0.4.6` | Update release versions across project files |
+| `npx tsc --noEmit` | TypeScript type check only |
+
+### Documentation
+
+- **[Architecture](docs/ARCHITECTURE.md)** — System architecture, data flow, and design patterns
+- **[Development Guide](docs/DEVELOPMENT.md)** — Setup, coding standards, and debugging
+- **[Deployment Guide](docs/DEPLOYMENT.md)** — Build, release, and CI/CD workflows
 
 ### Data Storage
 
