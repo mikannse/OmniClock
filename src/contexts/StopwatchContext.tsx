@@ -23,9 +23,7 @@ type StopwatchAction =
   | { type: 'PAUSE' }
   | { type: 'RESET' }
   | { type: 'TICK'; payload: number }
-  | { type: 'ADD_LAP'; payload: StopwatchLap }
-  | { type: 'SET_ELAPSED'; payload: number }
-  | { type: 'SET_LAST_LAP_TIME'; payload: number };
+  | { type: 'ADD_LAP'; payload: StopwatchLap };
 
 const initialState: StopwatchState = {
   isRunning: false,
@@ -45,11 +43,7 @@ function stopwatchReducer(state: StopwatchState, action: StopwatchAction): Stopw
     case 'TICK':
       return { ...state, elapsedMs: action.payload };
     case 'ADD_LAP':
-      return { ...state, laps: [action.payload, ...state.laps] };
-    case 'SET_ELAPSED':
-      return { ...state, elapsedMs: action.payload };
-    case 'SET_LAST_LAP_TIME':
-      return { ...state, lastLapTime: action.payload };
+      return { ...state, laps: [action.payload, ...state.laps], lastLapTime: action.payload.time };
     default:
       return state;
   }
@@ -64,6 +58,11 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
   const pausedTimeRef = useRef<number>(0);
   const elapsedMsRef = useRef<number>(0);
   const lastLapTimeRef = useRef<number>(0);
+  const isRunningRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    isRunningRef.current = state.isRunning;
+  }, [state.isRunning]);
 
   useEffect(() => {
     if (state.isRunning) {
@@ -88,7 +87,7 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
   }, [state.isRunning]);
 
   const start = useCallback(() => {
-    if (state.isRunning) return;
+    if (isRunningRef.current) return;
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -97,14 +96,14 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
     pausedTimeRef.current = 0;
     dispatch({ type: 'START' });
     playSound('timerStart');
-  }, [state.isRunning]);
+  }, []);
 
   const pause = useCallback(() => {
-    if (!state.isRunning) return;
+    if (!isRunningRef.current) return;
     pausedTimeRef.current = elapsedMsRef.current;
     dispatch({ type: 'PAUSE' });
     playSound('hover');
-  }, [state.isRunning]);
+  }, []);
 
   const reset = useCallback(() => {
     dispatch({ type: 'RESET' });
@@ -114,7 +113,7 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const lap = useCallback(() => {
-    if (!state.isRunning) return;
+    if (!isRunningRef.current) return;
     const currentElapsed = elapsedMsRef.current;
     const currentLastLap = lastLapTimeRef.current;
     const lapTime = currentElapsed - currentLastLap;
@@ -125,11 +124,15 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
     };
     lastLapTimeRef.current = currentElapsed;
     dispatch({ type: 'ADD_LAP', payload: newLap });
-    dispatch({ type: 'SET_LAST_LAP_TIME', payload: currentElapsed });
-  }, [state.isRunning]);
+  }, []);
+
+  const value = React.useMemo(
+    () => ({ state, start, pause, reset, lap }),
+    [state, start, pause, reset, lap],
+  );
 
   return (
-    <StopwatchContext.Provider value={{ state, start, pause, reset, lap }}>
+    <StopwatchContext.Provider value={value}>
       {children}
     </StopwatchContext.Provider>
   );

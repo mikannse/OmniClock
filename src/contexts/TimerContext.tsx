@@ -140,7 +140,6 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const initialSecondsRef = useRef<number>(0);
   const currentSegmentIndexRef = useRef<number>(0);
   const activeConfigRef = useRef<TimerConfig | null>(null);
-  const segmentsLengthRef = useRef<number>(0);
   const baseElapsedRef = useRef<number>(0);
   const configsRef = useRef<TimerConfig[]>([]);
   configsRef.current = state.configs;
@@ -331,7 +330,6 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (state.status === 'running' && state.startedAt !== null && state.activeConfig) {
       activeConfigRef.current = state.activeConfig;
-      segmentsLengthRef.current = state.activeConfig.segments.length;
       scheduleSegmentTransition(state.currentSegmentIndex);
     }
 
@@ -416,7 +414,6 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       startedAtRef.current = now;
       currentSegmentIndexRef.current = 0;
       activeConfigRef.current = config;
-      segmentsLengthRef.current = config.segments.length;
       baseElapsedRef.current = 0;
       dispatch({
         type: 'START_TIMER',
@@ -456,7 +453,6 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     initialSecondsRef.current = 0;
     currentSegmentIndexRef.current = 0;
     activeConfigRef.current = null;
-    segmentsLengthRef.current = 0;
     baseElapsedRef.current = 0;
   }, []);
 
