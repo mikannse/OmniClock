@@ -141,10 +141,14 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const currentSegmentIndexRef = useRef<number>(0);
   const activeConfigRef = useRef<TimerConfig | null>(null);
   const segmentsLengthRef = useRef<number>(0);
+  const baseElapsedRef = useRef<number>(0);
   const configsRef = useRef<TimerConfig[]>([]);
   configsRef.current = state.configs;
   const statusRef = useRef<TimerStatus>('idle');
-  statusRef.current = state.status;
+
+  useEffect(() => {
+    statusRef.current = state.status;
+  }, [state.status]);
 
   useEffect(() => {
     void loadConfigs().then((configs) => dispatch({ type: 'SET_CONFIGS', payload: configs }));
@@ -215,7 +219,8 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     const endTime = startedAtRef.current + (seconds * 1000);
     const delay = endTime - Date.now();
 
-    if (delay <= 0) {
+    const performTransition = () => {
+      if (!config) return;
       if (segmentIndex + 1 < config.segments.length) {
         const nextSegment = config.segments[segmentIndex + 1];
         handleSegmentEnd(config, segmentIndex, nextSegment);
@@ -224,6 +229,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         initialSecondsRef.current = nextSeconds;
         startedAtRef.current = now;
         currentSegmentIndexRef.current = segmentIndex + 1;
+        baseElapsedRef.current += seconds;
         dispatch({
           type: 'NEXT_SEGMENT',
           payload: { nextIndex: segmentIndex + 1, seconds: nextSeconds, startedAt: now },
@@ -233,28 +239,14 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         handleTimerEnd();
         dispatch({ type: 'TIMER_END' });
       }
+    };
+
+    if (delay <= 0) {
+      performTransition();
       return;
     }
 
-    timeoutRef.current = window.setTimeout(() => {
-      if (segmentIndex + 1 < config.segments.length) {
-        const nextSegment = config.segments[segmentIndex + 1];
-        handleSegmentEnd(config, segmentIndex, nextSegment);
-        const nextSeconds = minutesToSeconds(nextSegment.minutes);
-        const now = Date.now();
-        initialSecondsRef.current = nextSeconds;
-        startedAtRef.current = now;
-        currentSegmentIndexRef.current = segmentIndex + 1;
-        dispatch({
-          type: 'NEXT_SEGMENT',
-          payload: { nextIndex: segmentIndex + 1, seconds: nextSeconds, startedAt: now },
-        });
-        scheduleSegmentTransition(segmentIndex + 1);
-      } else {
-        handleTimerEnd();
-        dispatch({ type: 'TIMER_END' });
-      }
-    }, delay);
+    timeoutRef.current = window.setTimeout(performTransition, delay);
   }, [handleSegmentEnd, handleTimerEnd]);
 
   useEffect(() => {
@@ -263,7 +255,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         const now = Date.now();
         const elapsed = Math.floor((now - startedAtRef.current) / 1000);
         const remaining = Math.max(0, initialSecondsRef.current - elapsed);
-        const total = elapsed;
+        const total = baseElapsedRef.current + elapsed;
 
         dispatch({
           type: 'TICK',
@@ -403,8 +395,8 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 
   const startTimer = useCallback(
     (configId: string) => {
-      if (state.status === 'running') return;
-      const config = state.configs.find((item) => item.id === configId);
+      if (statusRef.current === 'running') return;
+      const config = configsRef.current.find((item) => item.id === configId);
       if (!config || config.segments.length === 0) {
         return;
       }
@@ -425,13 +417,14 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       currentSegmentIndexRef.current = 0;
       activeConfigRef.current = config;
       segmentsLengthRef.current = config.segments.length;
+      baseElapsedRef.current = 0;
       dispatch({
         type: 'START_TIMER',
         payload: { config, initialSeconds: seconds, startedAt: now },
       });
       playTimerSound('timerStart');
     },
-    [playTimerSound, state.configs, state.status],
+    [playTimerSound],
   );
 
   const pauseTimer = useCallback(() => {
@@ -464,15 +457,22 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     currentSegmentIndexRef.current = 0;
     activeConfigRef.current = null;
     segmentsLengthRef.current = 0;
+    baseElapsedRef.current = 0;
   }, []);
 
   const jumpToSegment = useCallback(
     (segmentIndex: number) => {
-      if (!state.activeConfig) {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+
+      const config = activeConfigRef.current;
+      if (!config) {
         return;
       }
 
-      const segment = state.activeConfig.segments[segmentIndex];
+      const segment = config.segments[segmentIndex];
       if (!segment) {
         return;
       }
@@ -482,12 +482,15 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       initialSecondsRef.current = seconds;
       startedAtRef.current = now;
       currentSegmentIndexRef.current = segmentIndex;
+      baseElapsedRef.current = config.segments
+        .slice(0, segmentIndex)
+        .reduce((sum, seg) => sum + minutesToSeconds(seg.minutes), 0);
       dispatch({
         type: 'JUMP_TO_SEGMENT',
         payload: { segmentIndex, seconds, startedAt: now },
       });
     },
-    [state.activeConfig],
+    [],
   );
 
   const updateSettings = useCallback(
