@@ -52,18 +52,27 @@ fn update_tray_labels(app: AppHandle, labels: TrayLabels) -> Result<(), String> 
     Ok(())
 }
 
+fn escape_applescript(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
 #[cfg(target_os = "macos")]
 fn send_notification_impl(_app: &AppHandle, title: &str, body: &str) -> Result<(), String> {
     let script = format!(
         "display notification \"{}\" with title \"{}\"",
-        body.replace("\"", "\\\""),
-        title.replace("\"", "\\\"")
+        escape_applescript(body),
+        escape_applescript(title)
     );
 
-    Command::new("osascript")
+    let output = Command::new("osascript")
         .args(["-e", &script])
         .output()
         .map_err(|e| e.to_string())?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("osascript failed: {}", stderr));
+    }
 
     Ok(())
 }
@@ -94,11 +103,18 @@ fn setup_tray(app: &AppHandle) -> Result<TrayIcon, tauri::Error> {
     let labels = default_tray_labels();
     let menu = create_tray_menu(app, &labels)?;
 
-    TrayIconBuilder::with_id(TRAY_ID)
-        .icon(app.default_window_icon().unwrap().clone())
+    let builder = TrayIconBuilder::with_id(TRAY_ID)
         .menu(&menu)
         .tooltip(&labels.tooltip)
-        .show_menu_on_left_click(false)
+        .show_menu_on_left_click(false);
+
+    let builder = if let Some(icon) = app.default_window_icon() {
+        builder.icon(icon.clone())
+    } else {
+        builder
+    };
+
+    builder
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => {
                 if let Some(window) = app.get_webview_window("main") {
