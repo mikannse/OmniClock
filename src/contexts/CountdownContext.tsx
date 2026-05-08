@@ -129,7 +129,7 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
       };
 
       updateDisplay();
-      intervalRef.current = window.setInterval(updateDisplay, 100);
+      intervalRef.current = window.setInterval(updateDisplay, 250);
 
       const handleVisibilityChange = () => {
         if (document.visibilityState === 'visible' && isRunningRef.current) {
@@ -255,8 +255,21 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'SET_TOTAL_SECONDS', payload: newTime });
   }, []);
 
+  const value = React.useMemo(
+    () => ({
+      state,
+      setTotalSeconds,
+      setTimeLeft,
+      start,
+      pause,
+      reset,
+      adjustTime,
+    }),
+    [state, setTotalSeconds, setTimeLeft, start, pause, reset, adjustTime],
+  );
+
   return (
-    <CountdownContext.Provider value={{ state, setTotalSeconds, setTimeLeft, start, pause, reset, adjustTime }}>
+    <CountdownContext.Provider value={value}>
       {children}
     </CountdownContext.Provider>
   );

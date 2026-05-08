@@ -276,7 +276,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       };
 
       updateDisplay();
-      intervalRef.current = window.setInterval(updateDisplay, 100);
+      intervalRef.current = window.setInterval(updateDisplay, 250);
 
       const handleVisibilityChange = () => {
         if (document.visibilityState === 'visible') {
@@ -528,30 +528,51 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     [state.settings, t],
   );
 
+  const value = React.useMemo(
+    () => ({
+      configs: state.configs,
+      settings: state.settings,
+      timerState: {
+        status: state.status,
+        currentSegmentIndex: state.currentSegmentIndex,
+        remainingSeconds: state.remainingSeconds,
+        totalElapsedSeconds: state.totalElapsedSeconds,
+      },
+      activeConfig: state.activeConfig,
+      warning: state.warning,
+      addConfig,
+      updateConfig,
+      deleteConfig,
+      startTimer,
+      pauseTimer,
+      resumeTimer,
+      resetTimer,
+      jumpToSegment,
+      updateSettings,
+    }),
+    [
+      state.configs,
+      state.settings,
+      state.status,
+      state.currentSegmentIndex,
+      state.remainingSeconds,
+      state.totalElapsedSeconds,
+      state.activeConfig,
+      state.warning,
+      addConfig,
+      updateConfig,
+      deleteConfig,
+      startTimer,
+      pauseTimer,
+      resumeTimer,
+      resetTimer,
+      jumpToSegment,
+      updateSettings,
+    ],
+  );
+
   return (
-    <TimerContext.Provider
-      value={{
-        configs: state.configs,
-        settings: state.settings,
-        timerState: {
-          status: state.status,
-          currentSegmentIndex: state.currentSegmentIndex,
-          remainingSeconds: state.remainingSeconds,
-          totalElapsedSeconds: state.totalElapsedSeconds,
-        },
-        activeConfig: state.activeConfig,
-        warning: state.warning,
-        addConfig,
-        updateConfig,
-        deleteConfig,
-        startTimer,
-        pauseTimer,
-        resumeTimer,
-        resetTimer,
-        jumpToSegment,
-        updateSettings,
-      }}
-    >
+    <TimerContext.Provider value={value}>
       {children}
     </TimerContext.Provider>
   );

@@ -225,7 +225,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
       };
 
       updateDisplay();
-      intervalRef.current = window.setInterval(updateDisplay, 100);
+      intervalRef.current = window.setInterval(updateDisplay, 250);
 
       const handleVisibilityChange = () => {
         if (document.visibilityState === 'visible' && statusRef.current !== 'idle') {
@@ -368,29 +368,40 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     baseElapsedRef.current = 0;
   }, []);
 
-  const isRunning = state.status !== 'idle';
-
-  const exportedState: PomodoroState = {
-    status: state.status,
-    completedPomodoros: state.completedPomodoros,
-    remainingSeconds: state.remainingSeconds,
-    totalElapsedSeconds: state.totalElapsedSeconds,
-  };
+  const value = React.useMemo(
+    () => ({
+      settings,
+      pomodoroState: {
+        status: state.status,
+        completedPomodoros: state.completedPomodoros,
+        remainingSeconds: state.remainingSeconds,
+        totalElapsedSeconds: state.totalElapsedSeconds,
+      },
+      isRunning: state.status !== 'idle',
+      updatePomodoroSettings,
+      startWork,
+      startShortBreak,
+      startLongBreak,
+      skip,
+      reset,
+    }),
+    [
+      settings,
+      state.status,
+      state.completedPomodoros,
+      state.remainingSeconds,
+      state.totalElapsedSeconds,
+      updatePomodoroSettings,
+      startWork,
+      startShortBreak,
+      startLongBreak,
+      skip,
+      reset,
+    ],
+  );
 
   return (
-    <PomodoroContext.Provider
-      value={{
-        settings,
-        pomodoroState: exportedState,
-        isRunning,
-        updatePomodoroSettings,
-        startWork,
-        startShortBreak,
-        startLongBreak,
-        skip,
-        reset,
-      }}
-    >
+    <PomodoroContext.Provider value={value}>
       {children}
     </PomodoroContext.Provider>
   );
