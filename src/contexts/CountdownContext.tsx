@@ -73,7 +73,20 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
   const startedAtRef = useRef<number>(0);
   const initialSecondsRef = useRef<number>(0);
   const isRunningRef = useRef<boolean>(false);
-  isRunningRef.current = state.isRunning;
+  const isEditingRef = useRef<boolean>(false);
+  const timeLeftRef = useRef<number>(300);
+
+  useEffect(() => {
+    isRunningRef.current = state.isRunning;
+  }, [state.isRunning]);
+
+  useEffect(() => {
+    isEditingRef.current = state.isEditing;
+  }, [state.isEditing]);
+
+  useEffect(() => {
+    timeLeftRef.current = state.timeLeft;
+  }, [state.timeLeft]);
 
   const scheduleEndTimeout = useCallback(() => {
     if (timeoutRef.current) {
@@ -84,16 +97,17 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
     const endTime = startedAtRef.current + (initialSecondsRef.current * 1000);
     const delay = endTime - Date.now();
 
-    if (delay <= 0) {
+    const performEnd = () => {
       dispatch({ type: 'PAUSE' });
       playSound('timerEnd');
+    };
+
+    if (delay <= 0) {
+      performEnd();
       return;
     }
 
-    timeoutRef.current = window.setTimeout(() => {
-      dispatch({ type: 'PAUSE' });
-      playSound('timerEnd');
-    }, delay);
+    timeoutRef.current = window.setTimeout(performEnd, delay);
   }, []);
 
   useEffect(() => {
@@ -187,7 +201,7 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const start = useCallback(() => {
-    if (state.isRunning) return;
+    if (isRunningRef.current) return;
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -196,25 +210,25 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-    if (state.isEditing && state.timeLeft > 0) {
+    if (isEditingRef.current && timeLeftRef.current > 0) {
       dispatch({ type: 'SET_EDITING', payload: false });
     }
     const now = Date.now();
-    initialSecondsRef.current = state.timeLeft;
+    initialSecondsRef.current = timeLeftRef.current;
     startedAtRef.current = now;
     dispatch({ type: 'START', payload: { startedAt: now } });
     playSound('timerStart');
-  }, [state.isEditing, state.isRunning, state.timeLeft]);
+  }, []);
 
   const pause = useCallback(() => {
-    if (!state.isRunning) return;
+    if (!isRunningRef.current) return;
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
     dispatch({ type: 'PAUSE' });
     playSound('hover');
-  }, [state.isRunning]);
+  }, []);
 
   const reset = useCallback(() => {
     if (intervalRef.current) {
@@ -231,15 +245,15 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const adjustTime = useCallback((amount: number, unit: 'hours' | 'minutes' | 'seconds') => {
-    if (!state.isEditing) return;
+    if (!isEditingRef.current) return;
     let seconds = 0;
     if (unit === 'hours') seconds = amount * 3600;
     else if (unit === 'minutes') seconds = amount * 60;
     else seconds = amount;
-    const newTime = Math.max(0, Math.min(86399, state.timeLeft + seconds));
+    const newTime = Math.max(0, Math.min(86399, timeLeftRef.current + seconds));
     dispatch({ type: 'SET_TIME_LEFT', payload: newTime });
     dispatch({ type: 'SET_TOTAL_SECONDS', payload: newTime });
-  }, [state.isEditing, state.timeLeft]);
+  }, []);
 
   return (
     <CountdownContext.Provider value={{ state, setTotalSeconds, setTimeLeft, start, pause, reset, adjustTime }}>
