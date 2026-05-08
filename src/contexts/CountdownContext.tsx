@@ -75,6 +75,7 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
   const isRunningRef = useRef<boolean>(false);
   const isEditingRef = useRef<boolean>(false);
   const timeLeftRef = useRef<number>(300);
+  const scheduleGenRef = useRef(0);
 
   useEffect(() => {
     isRunningRef.current = state.isRunning;
@@ -107,7 +108,11 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    timeoutRef.current = window.setTimeout(performEnd, delay);
+    const currentGen = ++scheduleGenRef.current;
+    timeoutRef.current = window.setTimeout(() => {
+      if (currentGen !== scheduleGenRef.current) return;
+      performEnd();
+    }, delay);
   }, []);
 
   useEffect(() => {

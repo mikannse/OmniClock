@@ -86,6 +86,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   const startedAtRef = useRef<number>(0);
   const initialSecondsRef = useRef<number>(0);
   const baseElapsedRef = useRef(0);
+  const scheduleGenRef = useRef(0);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -197,7 +198,9 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    const currentGen = ++scheduleGenRef.current;
     timeoutRef.current = window.setTimeout(() => {
+      if (currentGen !== scheduleGenRef.current) return;
       autoTransition();
     }, delay);
   }, [autoTransition, playPomodoroSound]);

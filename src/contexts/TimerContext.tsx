@@ -144,6 +144,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const configsRef = useRef<TimerConfig[]>([]);
   configsRef.current = state.configs;
   const statusRef = useRef<TimerStatus>('idle');
+  const scheduleGenRef = useRef(0);
 
   useEffect(() => {
     statusRef.current = state.status;
@@ -245,7 +246,11 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    timeoutRef.current = window.setTimeout(performTransition, delay);
+    const currentGen = ++scheduleGenRef.current;
+    timeoutRef.current = window.setTimeout(() => {
+      if (currentGen !== scheduleGenRef.current) return;
+      performTransition();
+    }, delay);
   }, [handleSegmentEnd, handleTimerEnd]);
 
   useEffect(() => {
