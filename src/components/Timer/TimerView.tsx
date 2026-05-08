@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { TimerConfigForm } from './TimerConfigForm';
 import { TimerControls } from './TimerControls';
 import { TimerDisplay } from './TimerDisplay';
+import type { TimerConfig } from '../../types';
 import { useTimerContext } from '../../contexts/TimerContext';
 import { minutesToSeconds } from '../../utils/time';
 
@@ -15,9 +16,9 @@ export function TimerView() {
   const { t } = useTranslation();
   const { configs, timerState, startTimer, deleteConfig } = useTimerContext();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [editingConfig, setEditingConfig] = useState<typeof configs[0] | null>(null);
+  const [editingConfig, setEditingConfig] = useState<TimerConfig | null>(null);
 
-  const handleEditConfig = (config: typeof configs[0]) => {
+  const handleEditConfig = (config: TimerConfig) => {
     setEditingConfig(config);
     setViewMode('edit');
   };

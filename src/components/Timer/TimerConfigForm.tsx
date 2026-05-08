@@ -2,16 +2,12 @@
 import { Minus, Plus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import type { TimerSegment } from '../../types';
+import type { TimerConfig, TimerSegment } from '../../types';
 import { useTimerContext } from '../../contexts/TimerContext';
 import { generateId } from '../../utils/time';
 
 interface TimerConfigFormProps {
-  editConfig?: {
-    id: string;
-    name: string;
-    segments: TimerSegment[];
-  };
+  editConfig?: Pick<TimerConfig, 'id' | 'name' | 'segments'>;
   onSave?: () => void;
   onCancel?: () => void;
 }
@@ -35,11 +31,15 @@ export function TimerConfigForm({ editConfig, onSave, onCancel }: TimerConfigFor
 
   const handleSegmentChange = (id: string, field: 'name' | 'minutes', value: string | number) => {
     setSegments(
-      segments.map((segment) =>
-        segment.id === id
-          ? { ...segment, [field]: field === 'minutes' ? Number(value) : value }
-          : segment,
-      ),
+      segments.map((segment) => {
+        if (segment.id !== id) return segment;
+        if (field === 'minutes') {
+          const num = typeof value === 'string' ? Number(value) : value;
+          const minutes = Number.isNaN(num) || num < 1 ? 1 : num;
+          return { ...segment, minutes };
+        }
+        return { ...segment, name: value as string };
+      }),
     );
   };
 
@@ -103,7 +103,7 @@ export function TimerConfigForm({ editConfig, onSave, onCancel }: TimerConfigFor
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => handleSegmentChange(segment.id, 'minutes', Math.max(1, segment.minutes - 1))}
+                  onClick={() => handleSegmentChange(segment.id, 'minutes', segment.minutes - 1)}
                   className="flex h-8 w-8 items-center justify-center rounded-md bg-secondary transition-colors hover:bg-secondary/80"
                 >
                   <Minus className="h-3 w-3" />
@@ -112,7 +112,7 @@ export function TimerConfigForm({ editConfig, onSave, onCancel }: TimerConfigFor
                   type="number"
                   value={segment.minutes || ''}
                   onChange={(event) =>
-                    handleSegmentChange(segment.id, 'minutes', Math.max(1, Number(event.target.value)))
+                    handleSegmentChange(segment.id, 'minutes', event.target.value)
                   }
                   placeholder={t('timer.minutes')}
                   min="1"

@@ -1,12 +1,12 @@
 import { BaseDirectory, exists, mkdir, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
-import type { TimerConfig, Settings, PomodoroSettings } from '../types';
+import type { TimerConfig, TimerSegment, Settings, PomodoroSettings } from '../types';
 
 const DATA_DIR = 'data';
 const CONFIG_FILE = 'configs.json';
 const SETTINGS_FILE = 'settings.json';
 const POMODORO_FILE = 'pomodoro.json';
 
-function isValidTimerSegment(item: unknown): boolean {
+function isValidTimerSegment(item: unknown): item is TimerSegment {
   if (!item || typeof item !== 'object') return false;
   const seg = item as Record<string, unknown>;
   return (
@@ -16,16 +16,19 @@ function isValidTimerSegment(item: unknown): boolean {
   );
 }
 
-function isValidTimerConfig(item: unknown): boolean {
+function isValidTimerConfig(item: unknown): item is TimerConfig {
   if (!item || typeof item !== 'object') return false;
   const config = item as Record<string, unknown>;
   return (
     typeof config.id === 'string' &&
     typeof config.name === 'string' &&
     Array.isArray(config.segments) &&
-    config.segments.every(isValidTimerSegment)
+    config.segments.every(isValidTimerSegment) &&
+    typeof config.createdAt === 'string'
   );
 }
+
+const VALID_THEMES = ['light', 'dark', 'system'] as const;
 
 function isValidSettings(item: unknown): item is Settings {
   if (!item || typeof item !== 'object') return false;
@@ -34,6 +37,7 @@ function isValidSettings(item: unknown): item is Settings {
     typeof s.notificationsEnabled === 'boolean' &&
     typeof s.soundEnabled === 'boolean' &&
     typeof s.theme === 'string' &&
+    VALID_THEMES.includes(s.theme as typeof VALID_THEMES[number]) &&
     typeof s.autostartEnabled === 'boolean' &&
     typeof s.closeToTray === 'boolean'
   );
@@ -66,13 +70,9 @@ const defaultPomodoroSettings: PomodoroSettings = {
 };
 
 async function ensureDataDir() {
-  try {
-    const dirExists = await exists(DATA_DIR, { baseDir: BaseDirectory.AppData });
-    if (!dirExists) {
-      await mkdir(DATA_DIR, { baseDir: BaseDirectory.AppData, recursive: true });
-    }
-  } catch {
-    // Directory might already exist
+  const dirExists = await exists(DATA_DIR, { baseDir: BaseDirectory.AppData });
+  if (!dirExists) {
+    await mkdir(DATA_DIR, { baseDir: BaseDirectory.AppData, recursive: true });
   }
 }
 
