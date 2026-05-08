@@ -3,7 +3,7 @@ import { message } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import type { Settings, TimerConfig, TimerSegment, TimerState } from '../types';
+import type { Settings, TimerConfig, TimerSegment, TimerState, TimerStatus } from '../types';
 import { setAutostart } from '../utils/autostart';
 import { playSound } from '../utils/sound';
 import { loadConfigs, loadSettings, saveConfigs, saveSettings } from '../utils/storage';
@@ -143,6 +143,8 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const segmentsLengthRef = useRef<number>(0);
   const configsRef = useRef<TimerConfig[]>([]);
   configsRef.current = state.configs;
+  const statusRef = useRef<TimerStatus>('idle');
+  statusRef.current = state.status;
 
   useEffect(() => {
     void loadConfigs().then((configs) => dispatch({ type: 'SET_CONFIGS', payload: configs }));
@@ -272,10 +274,12 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
           },
         });
 
-        if (remaining === 0 && timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-          scheduleSegmentTransition(state.currentSegmentIndex);
+        if (remaining === 0) {
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+          scheduleSegmentTransition(currentSegmentIndexRef.current);
         }
       };
 
@@ -285,17 +289,29 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       const handleVisibilityChange = () => {
         if (document.visibilityState === 'visible') {
           updateDisplay();
-          if (state.status === 'running') {
+          if (statusRef.current === 'running') {
             if (timeoutRef.current) {
               clearTimeout(timeoutRef.current);
               timeoutRef.current = null;
             }
-            scheduleSegmentTransition(state.currentSegmentIndex);
+            scheduleSegmentTransition(currentSegmentIndexRef.current);
           }
         }
       };
 
+      const handleFocus = () => {
+        if (statusRef.current === 'running') {
+          updateDisplay();
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+          scheduleSegmentTransition(currentSegmentIndexRef.current);
+        }
+      };
+
       document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleFocus);
 
       return () => {
         if (intervalRef.current) {
@@ -303,6 +319,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
           intervalRef.current = null;
         }
         document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleFocus);
       };
     }
 

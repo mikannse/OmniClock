@@ -229,9 +229,11 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
           payload: { remainingSeconds: remaining, totalElapsedSeconds: total },
         });
 
-        if (remaining === 0 && timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
+        if (remaining === 0) {
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
           playPomodoroSound('timerEnd');
           autoTransition();
         }
@@ -241,7 +243,18 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
       intervalRef.current = window.setInterval(updateDisplay, 100);
 
       const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible' && state.status !== 'idle') {
+        if (document.visibilityState === 'visible' && statusRef.current !== 'idle') {
+          updateDisplay();
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+          scheduleEndTimeout(startedAtRef.current, initialSecondsRef.current);
+        }
+      };
+
+      const handleFocus = () => {
+        if (statusRef.current !== 'idle') {
           updateDisplay();
           if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
@@ -252,6 +265,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
       };
 
       document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleFocus);
 
       return () => {
         if (intervalRef.current) {
@@ -259,6 +273,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
           intervalRef.current = null;
         }
         document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleFocus);
       };
     }
 

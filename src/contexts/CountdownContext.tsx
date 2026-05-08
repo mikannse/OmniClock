@@ -72,6 +72,8 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
   const timeoutRef = useRef<number | null>(null);
   const startedAtRef = useRef<number>(0);
   const initialSecondsRef = useRef<number>(0);
+  const isRunningRef = useRef<boolean>(false);
+  isRunningRef.current = state.isRunning;
 
   const scheduleEndTimeout = useCallback(() => {
     if (timeoutRef.current) {
@@ -103,9 +105,11 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
 
         dispatch({ type: 'TICK', payload: { timeLeft: remaining } });
 
-        if (remaining === 0 && timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
+        if (remaining === 0) {
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
           scheduleEndTimeout();
         }
       };
@@ -114,7 +118,18 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
       intervalRef.current = window.setInterval(updateDisplay, 100);
 
       const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible' && state.isRunning) {
+        if (document.visibilityState === 'visible' && isRunningRef.current) {
+          updateDisplay();
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+          scheduleEndTimeout();
+        }
+      };
+
+      const handleFocus = () => {
+        if (isRunningRef.current) {
           updateDisplay();
           if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
@@ -125,6 +140,7 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
       };
 
       document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleFocus);
 
       return () => {
         if (intervalRef.current) {
@@ -132,6 +148,7 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
           intervalRef.current = null;
         }
         document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleFocus);
       };
     }
 
