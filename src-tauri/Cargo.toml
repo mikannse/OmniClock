@@ -1,6 +1,6 @@
 [package]
 name = "omni-clock"
-version = "0.8.1"
+version = "0.9.1"
 description = "Omni Clock desktop app"
 authors = ["mikannse"]
 edition = "2021"
@@ -22,3 +22,4 @@ tauri-plugin-updater = { version = "2", default-features = false, features = ["n
 tauri-plugin-dialog = "2.7"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tokio = { version = "1", features = ["time", "rt", "sync"] }

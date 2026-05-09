@@ -1,5 +1,6 @@
 ﻿import { Monitor, Moon, RefreshCw, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { invoke } from '@tauri-apps/api/core';
 import i18n, { changeLanguage, languages } from '@/i18n';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -81,7 +82,10 @@ export function SettingsView() {
             <Switch
               id="closeToTray"
               checked={settings.closeToTray}
-              onCheckedChange={(checked) => updateSettings({ closeToTray: checked })}
+              onCheckedChange={(checked) => {
+                updateSettings({ closeToTray: checked });
+                void invoke('set_close_to_tray', { value: checked });
+              }}
             />
           </div>
         </div>

@@ -89,10 +89,14 @@ export async function loadConfigs(): Promise<TimerConfig[]> {
     if (Array.isArray(parsed) && parsed.every(isValidTimerConfig)) {
       return parsed;
     }
-    console.error('Invalid configs data structure, returning empty array');
+    console.error('Corrupted configs data structure, returning empty array');
     return [];
   } catch (error) {
-    console.error('Failed to load configs:', error);
+    if (error instanceof SyntaxError) {
+      console.error('Corrupted configs JSON, returning empty array:', error);
+    } else {
+      console.error('Failed to load configs:', error);
+    }
     return [];
   }
 }
@@ -121,10 +125,14 @@ export async function loadSettings(): Promise<Settings> {
     if (isValidSettings(parsed)) {
       return { ...defaultSettings, ...parsed };
     }
-    console.error('Invalid settings data structure, returning defaults');
+    console.error('Corrupted settings data structure, returning defaults');
     return defaultSettings;
   } catch (error) {
-    console.error('Failed to load settings:', error);
+    if (error instanceof SyntaxError) {
+      console.error('Corrupted settings JSON, returning defaults:', error);
+    } else {
+      console.error('Failed to load settings:', error);
+    }
     return defaultSettings;
   }
 }
@@ -153,10 +161,14 @@ export async function loadPomodoroSettings(): Promise<PomodoroSettings> {
     if (isValidPomodoroSettings(parsed)) {
       return { ...defaultPomodoroSettings, ...parsed };
     }
-    console.error('Invalid pomodoro settings data structure, returning defaults');
+    console.error('Corrupted pomodoro settings data structure, returning defaults');
     return defaultPomodoroSettings;
   } catch (error) {
-    console.error('Failed to load pomodoro settings:', error);
+    if (error instanceof SyntaxError) {
+      console.error('Corrupted pomodoro settings JSON, returning defaults:', error);
+    } else {
+      console.error('Failed to load pomodoro settings:', error);
+    }
     return defaultPomodoroSettings;
   }
 }

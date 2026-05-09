@@ -1,10 +1,23 @@
-﻿use serde::Deserialize;
-use std::process::Command;
+﻿mod timer;
+
+use serde::Deserialize;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, TrayIcon, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager,
+    AppHandle, Emitter, Manager, WindowEvent,
 };
+use timer::{TimerKind, TimerManager};
+
+struct AppState {
+    close_to_tray: Arc<AtomicBool>,
+}
+
+#[tauri::command]
+fn set_close_to_tray(state: tauri::State<'_, AppState>, value: bool) {
+    state.close_to_tray.store(value, Ordering::Relaxed);
+}
 
 const TRAY_ID: &str = "main-tray";
 
@@ -52,32 +65,6 @@ fn update_tray_labels(app: AppHandle, labels: TrayLabels) -> Result<(), String> 
     Ok(())
 }
 
-fn escape_applescript(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('"', "\\\"")
-}
-
-#[cfg(target_os = "macos")]
-fn send_notification_impl(_app: &AppHandle, title: &str, body: &str) -> Result<(), String> {
-    let script = format!(
-        "display notification \"{}\" with title \"{}\"",
-        escape_applescript(body),
-        escape_applescript(title)
-    );
-
-    let output = Command::new("osascript")
-        .args(["-e", &script])
-        .output()
-        .map_err(|e| e.to_string())?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("osascript failed: {}", stderr));
-    }
-
-    Ok(())
-}
-
-#[cfg(not(target_os = "macos"))]
 fn send_notification_impl(app: &AppHandle, title: &str, body: &str) -> Result<(), String> {
     use tauri_plugin_notification::NotificationExt;
     app.notification()
@@ -99,6 +86,42 @@ fn relaunch_app(app: AppHandle) {
     app.restart();
 }
 
+#[tauri::command]
+async fn timer_start(
+    timer_manager: tauri::State<'_, TimerManager>,
+    kind: TimerKind,
+) -> Result<String, String> {
+    timer_manager.start(kind).await
+}
+
+#[tauri::command]
+async fn timer_pause(timer_manager: tauri::State<'_, TimerManager>) -> Result<(), String> {
+    timer_manager.pause().await
+}
+
+#[tauri::command]
+async fn timer_resume(timer_manager: tauri::State<'_, TimerManager>) -> Result<(), String> {
+    timer_manager.resume().await
+}
+
+#[tauri::command]
+async fn timer_reset(timer_manager: tauri::State<'_, TimerManager>) -> Result<(), String> {
+    timer_manager.reset().await
+}
+
+#[tauri::command]
+async fn timer_jump_segment(
+    timer_manager: tauri::State<'_, TimerManager>,
+    index: usize,
+) -> Result<(), String> {
+    timer_manager.jump_segment(index).await
+}
+
+#[tauri::command]
+async fn timer_skip(timer_manager: tauri::State<'_, TimerManager>) -> Result<(), String> {
+    timer_manager.skip().await
+}
+
 fn setup_tray(app: &AppHandle) -> Result<TrayIcon, tauri::Error> {
     let labels = default_tray_labels();
     let menu = create_tray_menu(app, &labels)?;
@@ -118,21 +141,33 @@ fn setup_tray(app: &AppHandle) -> Result<TrayIcon, tauri::Error> {
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => {
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
+                    if let Err(e) = window.show() {
+                        eprintln!("tray show failed: {}", e);
+                    }
+                    if let Err(e) = window.set_focus() {
+                        eprintln!("tray focus failed: {}", e);
+                    }
                 }
             }
             "hide" => {
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.hide();
+                    if let Err(e) = window.hide() {
+                        eprintln!("tray hide failed: {}", e);
+                    }
                 }
             }
             "start_work" => {
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
+                    if let Err(e) = window.show() {
+                        eprintln!("tray show failed: {}", e);
+                    }
+                    if let Err(e) = window.set_focus() {
+                        eprintln!("tray focus failed: {}", e);
+                    }
                 }
-                let _ = app.emit("tray-start-work", ());
+                if let Err(e) = app.emit("tray-start-work", ()) {
+                    eprintln!("tray emit failed: {}", e);
+                }
             }
             "quit" => app.exit(0),
             _ => {}
@@ -145,8 +180,12 @@ fn setup_tray(app: &AppHandle) -> Result<TrayIcon, tauri::Error> {
             {
                 let app = tray.app_handle();
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
+                    if let Err(e) = window.show() {
+                        eprintln!("tray show failed: {}", e);
+                    }
+                    if let Err(e) = window.set_focus() {
+                        eprintln!("tray focus failed: {}", e);
+                    }
                 }
             }
         })
@@ -155,29 +194,64 @@ fn setup_tray(app: &AppHandle) -> Result<TrayIcon, tauri::Error> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            Some(vec!["--minimized"]),
-        ))
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![update_tray_labels, send_notification, relaunch_app])
-        .setup(|app| {
-            #[cfg(not(mobile))]
-            setup_tray(app.handle())?;
+    let result = tauri::Builder::default()
+            .plugin(tauri_plugin_opener::init())
+            .plugin(tauri_plugin_notification::init())
+            .plugin(tauri_plugin_fs::init())
+            .plugin(tauri_plugin_autostart::init(
+                tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+                Some(vec!["--minimized"]),
+            ))
+            .plugin(tauri_plugin_updater::Builder::new().build())
+            .plugin(tauri_plugin_dialog::init())
+            .invoke_handler(tauri::generate_handler![
+                update_tray_labels,
+                send_notification,
+                relaunch_app,
+                set_close_to_tray,
+                timer_start,
+                timer_pause,
+                timer_resume,
+                timer_reset,
+                timer_jump_segment,
+                timer_skip,
+            ])
+            .setup(|app| {
+                let close_to_tray = Arc::new(AtomicBool::new(false));
+                let close_to_tray_for_event = close_to_tray.clone();
+                app.manage(AppState { close_to_tray });
 
-            #[cfg(debug_assertions)]
-            {
-                let window = app.get_webview_window("main").unwrap();
-                window.open_devtools();
-            }
+                let timer_manager = TimerManager::new(app.handle().clone());
+                app.manage(timer_manager);
 
-            Ok(())
-        })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-}
+                #[cfg(not(mobile))]
+                setup_tray(app.handle())?;
+
+                if let Some(window) = app.get_webview_window("main") {
+                    let window_clone = window.clone();
+                    window.on_window_event(move |event| {
+                        if let WindowEvent::CloseRequested { api, .. } = event {
+                            if close_to_tray_for_event.load(Ordering::Relaxed) {
+                                api.prevent_close();
+                                if let Err(e) = window_clone.hide() {
+                                    eprintln!("window hide failed: {}", e);
+                                }
+                            }
+                        }
+                    });
+
+                    #[cfg(debug_assertions)]
+                    {
+                        window.open_devtools();
+                    }
+                }
+
+                Ok(())
+            })
+            .run(tauri::generate_context!());
+
+        if let Err(e) = result {
+            eprintln!("error while running tauri application: {}", e);
+            std::process::exit(1);
+        }
+    }

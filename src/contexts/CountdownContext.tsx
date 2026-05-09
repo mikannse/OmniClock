@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { playSound } from '../utils/sound';
 
 interface CountdownState {
@@ -68,14 +70,9 @@ const CountdownContext = createContext<CountdownContextType | null>(null);
 
 export function CountdownProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(countdownReducer, initialStateExtended);
-  const intervalRef = useRef<number | null>(null);
-  const timeoutRef = useRef<number | null>(null);
-  const startedAtRef = useRef<number>(0);
-  const initialSecondsRef = useRef<number>(0);
   const isRunningRef = useRef<boolean>(false);
   const isEditingRef = useRef<boolean>(false);
   const timeLeftRef = useRef<number>(300);
-  const scheduleGenRef = useRef(0);
 
   useEffect(() => {
     isRunningRef.current = state.isRunning;
@@ -89,113 +86,37 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
     timeLeftRef.current = state.timeLeft;
   }, [state.timeLeft]);
 
-  const scheduleEndTimeout = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
+  useEffect(() => {
+    let unlistenTick: (() => void) | undefined;
+    let unlistenTransition: (() => void) | undefined;
 
-    const endTime = startedAtRef.current + (initialSecondsRef.current * 1000);
-    const delay = endTime - Date.now();
+    const setupListeners = async () => {
+      unlistenTick = await listen('countdown:tick', (event) => {
+        const payload = event.payload as Record<string, unknown>;
+        if (typeof payload.timeLeft !== 'number') {
+          console.error('Invalid countdown:tick payload', payload);
+          return;
+        }
+        timeLeftRef.current = payload.timeLeft;
+        dispatch({ type: 'TICK', payload: { timeLeft: payload.timeLeft } });
+      });
 
-    const performEnd = () => {
-      dispatch({ type: 'PAUSE' });
-      playSound('timerEnd');
+      unlistenTransition = await listen('timer:transition', (event) => {
+        const payload = event.payload as Record<string, unknown>;
+        if (payload.type === 'countdown_end') {
+          dispatch({ type: 'PAUSE' });
+          playSound('timerEnd');
+        }
+      });
     };
 
-    if (delay <= 0) {
-      performEnd();
-      return;
-    }
+    void setupListeners();
 
-    const currentGen = ++scheduleGenRef.current;
-    timeoutRef.current = window.setTimeout(() => {
-      if (currentGen !== scheduleGenRef.current) return;
-      performEnd();
-    }, delay);
+    return () => {
+      if (unlistenTick) unlistenTick();
+      if (unlistenTransition) unlistenTransition();
+    };
   }, []);
-
-  useEffect(() => {
-    if (state.isRunning && state.startedAt !== null) {
-      const updateDisplay = () => {
-        const now = Date.now();
-        const elapsed = Math.floor((now - startedAtRef.current) / 1000);
-        const remaining = Math.max(0, initialSecondsRef.current - elapsed);
-
-        dispatch({ type: 'TICK', payload: { timeLeft: remaining } });
-
-        if (remaining === 0) {
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-          }
-          scheduleEndTimeout();
-        }
-      };
-
-      updateDisplay();
-      intervalRef.current = window.setInterval(updateDisplay, 250);
-
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible' && isRunningRef.current) {
-          updateDisplay();
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-          }
-          scheduleEndTimeout();
-        }
-      };
-
-      const handleFocus = () => {
-        if (isRunningRef.current) {
-          updateDisplay();
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-          }
-          scheduleEndTimeout();
-        }
-      };
-
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      window.addEventListener('focus', handleFocus);
-
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-        window.removeEventListener('focus', handleFocus);
-      };
-    }
-
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [state.isRunning, state.startedAt, scheduleEndTimeout]);
-
-  useEffect(() => {
-    if (state.isRunning && state.startedAt !== null && initialSecondsRef.current > 0) {
-      scheduleEndTimeout();
-    }
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-    };
-  }, [state.isRunning, state.startedAt, scheduleEndTimeout]);
 
   const setTotalSeconds = useCallback((seconds: number) => {
     dispatch({ type: 'SET_TOTAL_SECONDS', payload: seconds });
@@ -207,46 +128,35 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
 
   const start = useCallback(() => {
     if (isRunningRef.current) return;
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
     if (isEditingRef.current && timeLeftRef.current > 0) {
       dispatch({ type: 'SET_EDITING', payload: false });
     }
+    const seconds = timeLeftRef.current;
     const now = Date.now();
-    initialSecondsRef.current = timeLeftRef.current;
-    startedAtRef.current = now;
-    dispatch({ type: 'START', payload: { startedAt: now } });
-    playSound('timerStart');
+    invoke('timer_start', { kind: { type: 'countdown', totalSeconds: seconds } })
+      .then(() => {
+        dispatch({ type: 'START', payload: { startedAt: now } });
+        playSound('timerStart');
+      })
+      .catch((error) => console.error('Failed to start countdown:', error));
   }, []);
 
   const pause = useCallback(() => {
     if (!isRunningRef.current) return;
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    dispatch({ type: 'PAUSE' });
-    playSound('hover');
+    invoke('timer_pause')
+      .then(() => {
+        dispatch({ type: 'PAUSE' });
+        playSound('hover');
+      })
+      .catch((error) => console.error('Failed to pause countdown:', error));
   }, []);
 
   const reset = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    dispatch({ type: 'RESET' });
-    startedAtRef.current = 0;
-    initialSecondsRef.current = 0;
+    invoke('timer_reset')
+      .then(() => {
+        dispatch({ type: 'RESET' });
+      })
+      .catch((error) => console.error('Failed to reset countdown:', error));
   }, []);
 
   const adjustTime = useCallback((amount: number, unit: 'hours' | 'minutes' | 'seconds') => {

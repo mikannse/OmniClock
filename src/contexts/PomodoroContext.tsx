@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { PomodoroSettings, PomodoroState } from '../types';
@@ -11,7 +12,7 @@ type PomodoroStatus = 'idle' | 'working' | 'shortBreak' | 'longBreak';
 
 type PomodoroAction =
   | { type: 'START'; payload: { status: PomodoroStatus; seconds: number; startedAt: number } }
-  | { type: 'TICK'; payload: { remainingSeconds: number; totalElapsedSeconds: number } }
+  | { type: 'TICK'; payload: { remainingSeconds: number; totalElapsedSeconds: number; phase: PomodoroStatus; completedPomodoros: number } }
   | { type: 'RESET' }
   | { type: 'SET_COMPLETED'; payload: { count: number } };
 
@@ -61,6 +62,8 @@ function pomodoroReducer(state: PomodoroStateExtended, action: PomodoroAction): 
         ...state,
         remainingSeconds: action.payload.remainingSeconds,
         totalElapsedSeconds: action.payload.totalElapsedSeconds,
+        status: action.payload.phase,
+        completedPomodoros: action.payload.completedPomodoros,
       };
     case 'RESET':
       return { ...initialStateExtended };
@@ -78,15 +81,9 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   const { settings: appSettings } = useTimerContext();
   const [settings, setSettings] = useState<PomodoroSettings>(defaultSettings);
   const [state, dispatch] = useReducer(pomodoroReducer, initialStateExtended);
-  const intervalRef = useRef<number | null>(null);
-  const timeoutRef = useRef<number | null>(null);
   const statusRef = useRef<PomodoroStatus>('idle');
   const completedRef = useRef(0);
   const settingsRef = useRef(settings);
-  const startedAtRef = useRef<number>(0);
-  const initialSecondsRef = useRef<number>(0);
-  const baseElapsedRef = useRef(0);
-  const scheduleGenRef = useRef(0);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -126,170 +123,95 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     [appSettings.notificationsEnabled],
   );
 
-  const autoTransition = useCallback(() => {
-    const currentSettings = settingsRef.current;
-    const currentStatus = statusRef.current;
-    const currentCompleted = completedRef.current;
-    const now = Date.now();
-
-    const elapsed = Math.min(
-      initialSecondsRef.current,
-      Math.floor((now - startedAtRef.current) / 1000),
-    );
-    baseElapsedRef.current += elapsed;
-    playPomodoroSound('timerEnd');
-
-    const startPhase = (status: PomodoroStatus, seconds: number) => {
-      initialSecondsRef.current = seconds;
-      startedAtRef.current = now;
-      dispatch({ type: 'START', payload: { status, seconds, startedAt: now } });
-      statusRef.current = status;
-    };
-
-    if (currentStatus === 'working') {
-      const nextCompleted = currentCompleted + 1;
-      dispatch({ type: 'SET_COMPLETED', payload: { count: nextCompleted } });
-
-      if (nextCompleted % currentSettings.longBreakInterval === 0) {
-        startPhase('longBreak', currentSettings.longBreakMinutes * 60);
-        void showNotification(
-          t('pomodoro.notifications.workFinishedTitle'),
-          t('pomodoro.notifications.longBreakBody'),
-        );
-      } else {
-        startPhase('shortBreak', currentSettings.shortBreakMinutes * 60);
-        void showNotification(
-          t('pomodoro.notifications.workFinishedTitle'),
-          t('pomodoro.notifications.shortBreakBody'),
-        );
-      }
-      return;
-    }
-
-    if (currentStatus === 'shortBreak') {
-      startPhase('working', currentSettings.workMinutes * 60);
-      void showNotification(
-        t('pomodoro.notifications.breakFinishedTitle'),
-        t('pomodoro.notifications.breakFinishedBody'),
-      );
-      return;
-    }
-
-    if (currentStatus === 'longBreak') {
-      startPhase('working', currentSettings.workMinutes * 60);
-      void showNotification(
-        t('pomodoro.notifications.longBreakFinishedTitle'),
-        t('pomodoro.notifications.longBreakFinishedBody'),
-      );
-    }
-  }, [playPomodoroSound, showNotification, t]);
-
-  const scheduleEndTimeout = useCallback((startedAt: number, durationSeconds: number) => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-
-    const endTime = startedAt + (durationSeconds * 1000);
-    const delay = endTime - Date.now();
-
-    if (delay <= 0) {
-      autoTransition();
-      return;
-    }
-
-    const currentGen = ++scheduleGenRef.current;
-    timeoutRef.current = window.setTimeout(() => {
-      if (currentGen !== scheduleGenRef.current) return;
-      autoTransition();
-    }, delay);
-  }, [autoTransition, playPomodoroSound]);
-
   useEffect(() => {
-    if (state.status !== 'idle' && state.startedAt !== null) {
-      const updateDisplay = () => {
-        const now = Date.now();
-        const elapsed = Math.floor((now - startedAtRef.current) / 1000);
-        const remaining = Math.max(0, initialSecondsRef.current - elapsed);
-        const total = baseElapsedRef.current + elapsed;
+    let unlistenTick: (() => void) | undefined;
+    let unlistenTransition: (() => void) | undefined;
 
+    const setupListeners = async () => {
+      unlistenTick = await listen('pomodoro:tick', (event) => {
+        const payload = event.payload as Record<string, unknown>;
+        if (
+          typeof payload.remainingSeconds !== 'number' ||
+          typeof payload.totalElapsedSeconds !== 'number' ||
+          typeof payload.completedPomodoros !== 'number' ||
+          !['working', 'shortBreak', 'longBreak'].includes(payload.phase as string)
+        ) {
+          console.error('Invalid pomodoro:tick payload', payload);
+          return;
+        }
         dispatch({
           type: 'TICK',
-          payload: { remainingSeconds: remaining, totalElapsedSeconds: total },
+          payload: {
+            remainingSeconds: payload.remainingSeconds,
+            totalElapsedSeconds: payload.totalElapsedSeconds,
+            phase: payload.phase as PomodoroStatus,
+            completedPomodoros: payload.completedPomodoros,
+          },
         });
+      });
 
-        if (remaining === 0) {
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
+      unlistenTransition = await listen('timer:transition', (event) => {
+        const payload = event.payload as Record<string, unknown>;
+        if (payload.type !== 'phase_end') {
+          return;
+        }
+
+        if (
+          typeof payload.remainingSeconds === 'number' &&
+          typeof payload.totalElapsedSeconds === 'number' &&
+          typeof payload.completedPomodoros === 'number' &&
+          ['working', 'shortBreak', 'longBreak'].includes(payload.phase as string)
+        ) {
+          dispatch({
+            type: 'TICK',
+            payload: {
+              remainingSeconds: payload.remainingSeconds,
+              totalElapsedSeconds: payload.totalElapsedSeconds,
+              phase: payload.phase as PomodoroStatus,
+              completedPomodoros: payload.completedPomodoros,
+            },
+          });
+        }
+
+        const previousPhase = statusRef.current;
+        playPomodoroSound('timerEnd');
+
+        if (previousPhase === 'working') {
+          const newPhase = ['shortBreak', 'longBreak'].includes(payload.phase as string)
+            ? (payload.phase as PomodoroStatus)
+            : 'shortBreak';
+          if (newPhase === 'longBreak') {
+            void showNotification(
+              t('pomodoro.notifications.workFinishedTitle'),
+              t('pomodoro.notifications.longBreakBody'),
+            );
+          } else {
+            void showNotification(
+              t('pomodoro.notifications.workFinishedTitle'),
+              t('pomodoro.notifications.shortBreakBody'),
+            );
           }
-          autoTransition();
+        } else if (previousPhase === 'shortBreak') {
+          void showNotification(
+            t('pomodoro.notifications.breakFinishedTitle'),
+            t('pomodoro.notifications.breakFinishedBody'),
+          );
+        } else if (previousPhase === 'longBreak') {
+          void showNotification(
+            t('pomodoro.notifications.longBreakFinishedTitle'),
+            t('pomodoro.notifications.longBreakFinishedBody'),
+          );
         }
-      };
+      });
+    };
 
-      updateDisplay();
-      intervalRef.current = window.setInterval(updateDisplay, 250);
-
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible' && statusRef.current !== 'idle') {
-          updateDisplay();
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-          }
-          scheduleEndTimeout(startedAtRef.current, initialSecondsRef.current);
-        }
-      };
-
-      const handleFocus = () => {
-        if (statusRef.current !== 'idle') {
-          updateDisplay();
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-          }
-          scheduleEndTimeout(startedAtRef.current, initialSecondsRef.current);
-        }
-      };
-
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      window.addEventListener('focus', handleFocus);
-
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-        window.removeEventListener('focus', handleFocus);
-      };
-    }
-
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
+    void setupListeners();
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      if (unlistenTick) unlistenTick();
+      if (unlistenTransition) unlistenTransition();
     };
-  }, [state.status, state.startedAt, autoTransition, playPomodoroSound, scheduleEndTimeout]);
-
-  useEffect(() => {
-    if (state.status !== 'idle' && state.startedAt !== null && initialSecondsRef.current > 0) {
-      scheduleEndTimeout(state.startedAt, initialSecondsRef.current);
-    }
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-    };
-  }, [state.status, state.startedAt, scheduleEndTimeout]);
+  }, [playPomodoroSound, showNotification, t]);
 
   const updatePomodoroSettings = useCallback(
     async (newSettings: Partial<PomodoroSettings>) => {
@@ -305,70 +227,63 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   );
 
   const startWork = useCallback(() => {
-    if (statusRef.current === 'idle') {
-      baseElapsedRef.current = 0;
-    }
+    if (statusRef.current !== 'idle') return;
     const seconds = settingsRef.current.workMinutes * 60;
     const now = Date.now();
-    initialSecondsRef.current = seconds;
-    startedAtRef.current = now;
-    dispatch({ type: 'START', payload: { status: 'working', seconds, startedAt: now } });
-    statusRef.current = 'working';
-    playPomodoroSound('timerStart');
+
+    invoke('timer_start', {
+      kind: { type: 'pomodoro', settings: settingsRef.current, phase: 'working' },
+    })
+      .then(() => {
+        dispatch({ type: 'START', payload: { status: 'working', seconds, startedAt: now } });
+        statusRef.current = 'working';
+        playPomodoroSound('timerStart');
+      })
+      .catch((error) => console.error('Failed to start pomodoro:', error));
   }, [playPomodoroSound]);
 
   const startShortBreak = useCallback(() => {
-    if (statusRef.current === 'idle') {
-      baseElapsedRef.current = 0;
-    }
     const seconds = settingsRef.current.shortBreakMinutes * 60;
     const now = Date.now();
-    initialSecondsRef.current = seconds;
-    startedAtRef.current = now;
-    dispatch({ type: 'START', payload: { status: 'shortBreak', seconds, startedAt: now } });
-    statusRef.current = 'shortBreak';
-    playPomodoroSound('timerStart');
+
+    invoke('timer_start', {
+      kind: { type: 'pomodoro', settings: settingsRef.current, phase: 'shortBreak' },
+    })
+      .then(() => {
+        dispatch({ type: 'START', payload: { status: 'shortBreak', seconds, startedAt: now } });
+        statusRef.current = 'shortBreak';
+        playPomodoroSound('timerStart');
+      })
+      .catch((error) => console.error('Failed to start short break:', error));
   }, [playPomodoroSound]);
 
   const startLongBreak = useCallback(() => {
-    if (statusRef.current === 'idle') {
-      baseElapsedRef.current = 0;
-    }
     const seconds = settingsRef.current.longBreakMinutes * 60;
     const now = Date.now();
-    initialSecondsRef.current = seconds;
-    startedAtRef.current = now;
-    dispatch({ type: 'START', payload: { status: 'longBreak', seconds, startedAt: now } });
-    statusRef.current = 'longBreak';
-    playPomodoroSound('timerStart');
+
+    invoke('timer_start', {
+      kind: { type: 'pomodoro', settings: settingsRef.current, phase: 'longBreak' },
+    })
+      .then(() => {
+        dispatch({ type: 'START', payload: { status: 'longBreak', seconds, startedAt: now } });
+        statusRef.current = 'longBreak';
+        playPomodoroSound('timerStart');
+      })
+      .catch((error) => console.error('Failed to start long break:', error));
   }, [playPomodoroSound]);
 
   const skip = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    autoTransition();
-  }, [autoTransition]);
+    if (statusRef.current === 'idle') return;
+    invoke('timer_skip').catch((error) => console.error('Failed to skip phase:', error));
+  }, []);
 
   const reset = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    dispatch({ type: 'RESET' });
-    statusRef.current = 'idle';
-    startedAtRef.current = 0;
-    initialSecondsRef.current = 0;
-    baseElapsedRef.current = 0;
+    invoke('timer_reset')
+      .then(() => {
+        dispatch({ type: 'RESET' });
+        statusRef.current = 'idle';
+      })
+      .catch((error) => console.error('Failed to reset pomodoro:', error));
   }, []);
 
   const value = React.useMemo(
@@ -413,7 +328,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
 export function usePomodoroContext() {
   const context = useContext(PomodoroContext);
   if (!context) {
-    throw new Error('usePomodoroContext must be used within PomodoroProvider');
+    throw new Error('usePomodoroContext must be used within a PomodoroProvider');
   }
 
   return context;

@@ -1,10 +1,9 @@
-﻿import { useEffect, useState, type ReactNode } from 'react';
+﻿import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { Clock, Coffee, Hourglass, Settings, Timer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CountdownView } from './components/Countdown/CountdownView';
-import { CustomTitleBar } from './components/CustomTitleBar';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PomodoroView } from './components/Pomodoro/PomodoroView';
 import { SettingsView } from './components/Settings/SettingsView';
@@ -30,32 +29,28 @@ const NAV_ITEMS: { id: ModuleType; icon: ReactNode }[] = [
 
 function TrayEventHandler() {
   const { startWork } = usePomodoroContext();
+  const unlistenRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    let stopped = false;
+    let mounted = true;
 
-    const setupListener = async () => {
+    const setup = async () => {
       const unlisten = await listen('tray-start-work', () => {
-        if (!stopped) {
-          startWork();
-        }
+        startWork();
       });
-
-      if (stopped) {
+      if (mounted) {
+        unlistenRef.current = unlisten;
+      } else {
         unlisten();
-        return;
       }
-
-      return unlisten;
     };
 
-    let unlistenPromise = setupListener();
+    void setup();
 
     return () => {
-      stopped = true;
-      unlistenPromise.then((unlisten) => {
-        if (unlisten) unlisten();
-      });
+      mounted = false;
+      unlistenRef.current?.();
+      unlistenRef.current = null;
     };
   }, [startWork]);
 
@@ -76,9 +71,10 @@ function AppContent() {
         tooltip: t('tray.tooltip'),
       },
     }).catch(console.error);
-  }, [i18n.language, t]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language]);
 
-  const renderModule = () => {
+  const moduleView = useMemo(() => {
     switch (activeModule) {
       case 'timer':
         return <TimerView />;
@@ -93,7 +89,7 @@ function AppContent() {
       default:
         return <TimerView />;
     }
-  };
+  }, [activeModule]);
 
   return (
     <div className="flex flex-1 overflow-hidden bg-background">
@@ -131,7 +127,7 @@ function AppContent() {
       </aside>
 
       <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-2xl px-6 py-8">{renderModule()}</div>
+        <div className="mx-auto max-w-2xl px-6 py-8">{moduleView}</div>
       </main>
     </div>
   );
@@ -145,7 +141,6 @@ function App() {
           <StopwatchProvider>
             <CountdownProvider>
               <div className="flex h-screen flex-col overflow-hidden">
-                <CustomTitleBar />
                 <ErrorBoundary>
                   <TrayEventHandler />
                   <AppContent />

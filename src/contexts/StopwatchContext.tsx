@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useReducer, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import type { StopwatchLap } from '../types';
 import { generateId } from '../utils/time';
 import { playSound } from '../utils/sound';
@@ -53,9 +55,6 @@ const StopwatchContext = createContext<StopwatchContextType | null>(null);
 
 export function StopwatchProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(stopwatchReducer, initialState);
-  const intervalRef = useRef<number | null>(null);
-  const startTimeRef = useRef<number>(0);
-  const pausedTimeRef = useRef<number>(0);
   const elapsedMsRef = useRef<number>(0);
   const lastLapTimeRef = useRef<number>(0);
   const isRunningRef = useRef<boolean>(false);
@@ -65,51 +64,55 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
   }, [state.isRunning]);
 
   useEffect(() => {
-    if (state.isRunning) {
-      startTimeRef.current = Date.now() - pausedTimeRef.current;
-      intervalRef.current = window.setInterval(() => {
-        const elapsed = Date.now() - startTimeRef.current;
-        elapsedMsRef.current = elapsed;
-        dispatch({ type: 'TICK', payload: elapsed });
-        pausedTimeRef.current = elapsed;
-      }, 10);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+    let unlisten: (() => void) | undefined;
+
+    const setup = async () => {
+      unlisten = await listen('stopwatch:tick', (event) => {
+        const payload = event.payload as Record<string, unknown>;
+        if (typeof payload.elapsedMs !== 'number') {
+          console.error('Invalid stopwatch:tick payload', payload);
+          return;
+        }
+        elapsedMsRef.current = payload.elapsedMs;
+        dispatch({ type: 'TICK', payload: payload.elapsedMs });
+      });
     };
-  }, [state.isRunning]);
+
+    void setup();
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
 
   const start = useCallback(() => {
     if (isRunningRef.current) return;
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    startTimeRef.current = Date.now();
-    pausedTimeRef.current = 0;
-    dispatch({ type: 'START' });
-    playSound('timerStart');
+    invoke('timer_start', { kind: { type: 'stopwatch' } })
+      .then(() => {
+        dispatch({ type: 'START' });
+        playSound('timerStart');
+      })
+      .catch((error) => console.error('Failed to start stopwatch:', error));
   }, []);
 
   const pause = useCallback(() => {
     if (!isRunningRef.current) return;
-    pausedTimeRef.current = elapsedMsRef.current;
-    dispatch({ type: 'PAUSE' });
-    playSound('hover');
+    invoke('timer_pause')
+      .then(() => {
+        dispatch({ type: 'PAUSE' });
+        playSound('hover');
+      })
+      .catch((error) => console.error('Failed to pause stopwatch:', error));
   }, []);
 
   const reset = useCallback(() => {
-    dispatch({ type: 'RESET' });
-    pausedTimeRef.current = 0;
-    elapsedMsRef.current = 0;
-    lastLapTimeRef.current = 0;
+    invoke('timer_reset')
+      .then(() => {
+        dispatch({ type: 'RESET' });
+        elapsedMsRef.current = 0;
+        lastLapTimeRef.current = 0;
+      })
+      .catch((error) => console.error('Failed to reset stopwatch:', error));
   }, []);
 
   const lap = useCallback(() => {

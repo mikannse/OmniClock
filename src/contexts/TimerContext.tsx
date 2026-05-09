@@ -1,9 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';
 import { message } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import type { Settings, TimerConfig, TimerSegment, TimerState, TimerStatus } from '../types';
+import type { Settings, TimerConfig, TimerState, TimerStatus } from '../types';
 import { setAutostart } from '../utils/autostart';
 import { playSound } from '../utils/sound';
 import { loadConfigs, loadSettings, saveConfigs, saveSettings } from '../utils/storage';
@@ -30,7 +31,7 @@ type TimerAction =
   | { type: 'SET_CONFIGS'; payload: TimerConfig[] }
   | { type: 'SET_SETTINGS'; payload: Settings }
   | { type: 'START_TIMER'; payload: { config: TimerConfig; initialSeconds: number; startedAt: number } }
-  | { type: 'TICK'; payload: { remainingSeconds: number; totalElapsedSeconds: number; warning: boolean } }
+  | { type: 'TICK'; payload: { remainingSeconds: number; totalElapsedSeconds: number; currentSegmentIndex: number; warning: boolean } }
   | { type: 'NEXT_SEGMENT'; payload: { nextIndex: number; seconds: number; startedAt: number } }
   | { type: 'JUMP_TO_SEGMENT'; payload: { segmentIndex: number; seconds: number; startedAt: number } }
   | { type: 'PAUSE' }
@@ -90,6 +91,7 @@ function timerReducer(state: TimerContextState, action: TimerAction): TimerConte
         ...state,
         remainingSeconds: action.payload.remainingSeconds,
         totalElapsedSeconds: action.payload.totalElapsedSeconds,
+        currentSegmentIndex: action.payload.currentSegmentIndex,
         warning: action.payload.warning,
       };
     case 'NEXT_SEGMENT':
@@ -134,27 +136,25 @@ const TimerContext = createContext<TimerContextType | null>(null);
 export function TimerProvider({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const [state, dispatch] = useReducer(timerReducer, initialState);
-  const intervalRef = useRef<number | null>(null);
-  const timeoutRef = useRef<number | null>(null);
-  const startedAtRef = useRef<number>(0);
-  const initialSecondsRef = useRef<number>(0);
-  const currentSegmentIndexRef = useRef<number>(0);
-  const activeConfigRef = useRef<TimerConfig | null>(null);
-  const baseElapsedRef = useRef<number>(0);
   const configsRef = useRef<TimerConfig[]>([]);
   configsRef.current = state.configs;
   const statusRef = useRef<TimerStatus>('idle');
-  const scheduleGenRef = useRef(0);
+  const activeConfigRef = useRef<TimerConfig | null>(null);
 
   useEffect(() => {
     statusRef.current = state.status;
   }, [state.status]);
 
   useEffect(() => {
+    activeConfigRef.current = state.activeConfig;
+  }, [state.activeConfig]);
+
+  useEffect(() => {
     void loadConfigs().then((configs) => dispatch({ type: 'SET_CONFIGS', payload: configs }));
     void loadSettings().then((settings) => {
       dispatch({ type: 'SET_SETTINGS', payload: settings });
       void setAutostart(settings.autostartEnabled).catch(console.error);
+      void invoke('set_close_to_tray', { value: settings.closeToTray }).catch(console.error);
     });
   }, []);
 
@@ -180,171 +180,83 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     [state.settings.notificationsEnabled],
   );
 
-  const handleSegmentEnd = useCallback(
-    (config: TimerConfig, segmentIndex: number, nextSegment: TimerSegment) => {
-      playTimerSound('segmentEnd');
-      void showNotification(
-        t('timer.notifications.segmentCompleteTitle', {
-          segment: config.segments[segmentIndex]?.name ?? nextSegment.name,
-        }),
-        t('timer.notifications.segmentCompleteBody', { segment: nextSegment.name }),
-      );
-    },
-    [playTimerSound, showNotification, t],
-  );
-
-  const handleTimerEnd = useCallback(() => {
-    playTimerSound('timerEnd');
-    void showNotification(
-      t('timer.notifications.completeTitle'),
-      t('timer.notifications.completeBody'),
-    );
-  }, [playTimerSound, showNotification, t]);
-
-  const scheduleSegmentTransition = useCallback((segmentIndex: number) => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-
-    const config = activeConfigRef.current;
-    if (!config || segmentIndex >= config.segments.length) {
-      handleTimerEnd();
-      dispatch({ type: 'TIMER_END' });
-      return;
-    }
-
-    const segment = config.segments[segmentIndex];
-    const seconds = minutesToSeconds(segment.minutes);
-    const endTime = startedAtRef.current + (seconds * 1000);
-    const delay = endTime - Date.now();
-
-    const performTransition = () => {
-      if (!config) return;
-      if (segmentIndex + 1 < config.segments.length) {
-        const nextSegment = config.segments[segmentIndex + 1];
-        handleSegmentEnd(config, segmentIndex, nextSegment);
-        const nextSeconds = minutesToSeconds(nextSegment.minutes);
-        const now = Date.now();
-        initialSecondsRef.current = nextSeconds;
-        startedAtRef.current = now;
-        currentSegmentIndexRef.current = segmentIndex + 1;
-        baseElapsedRef.current += seconds;
-        dispatch({
-          type: 'NEXT_SEGMENT',
-          payload: { nextIndex: segmentIndex + 1, seconds: nextSeconds, startedAt: now },
-        });
-        scheduleSegmentTransition(segmentIndex + 1);
-      } else {
-        handleTimerEnd();
-        dispatch({ type: 'TIMER_END' });
-      }
-    };
-
-    if (delay <= 0) {
-      performTransition();
-      return;
-    }
-
-    const currentGen = ++scheduleGenRef.current;
-    timeoutRef.current = window.setTimeout(() => {
-      if (currentGen !== scheduleGenRef.current) return;
-      performTransition();
-    }, delay);
-  }, [handleSegmentEnd, handleTimerEnd]);
-
   useEffect(() => {
-    if (state.status === 'running' && state.startedAt !== null) {
-      const updateDisplay = () => {
-        const now = Date.now();
-        const elapsed = Math.floor((now - startedAtRef.current) / 1000);
-        const remaining = Math.max(0, initialSecondsRef.current - elapsed);
-        const total = baseElapsedRef.current + elapsed;
+    let unlistenTick: (() => void) | undefined;
+    let unlistenTransition: (() => void) | undefined;
 
+    const setupListeners = async () => {
+      unlistenTick = await listen('timer:tick', (event) => {
+        const payload = event.payload as {
+          remainingSeconds: number;
+          totalElapsedSeconds: number;
+          currentSegmentIndex: number;
+          warning: boolean;
+        };
         dispatch({
           type: 'TICK',
-          payload: {
-            remainingSeconds: remaining,
-            totalElapsedSeconds: total,
-            warning: remaining <= 30 && remaining > 0,
-          },
+          payload,
         });
+      });
 
-        if (remaining === 0) {
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
+      unlistenTransition = await listen('timer:transition', (event) => {
+        const payload = event.payload as Record<string, unknown>;
+
+        if (payload.type === 'segment_end') {
+          const currentSegmentIndex = typeof payload.currentSegmentIndex === 'number'
+            ? payload.currentSegmentIndex
+            : undefined;
+          const remainingSeconds = typeof payload.remainingSeconds === 'number'
+            ? payload.remainingSeconds
+            : undefined;
+          const totalElapsedSeconds = typeof payload.totalElapsedSeconds === 'number'
+            ? payload.totalElapsedSeconds
+            : undefined;
+
+          if (currentSegmentIndex !== undefined && remainingSeconds !== undefined && totalElapsedSeconds !== undefined) {
+            dispatch({
+              type: 'TICK',
+              payload: {
+                remainingSeconds,
+                totalElapsedSeconds,
+                currentSegmentIndex,
+                warning: false,
+              },
+            });
           }
-          scheduleSegmentTransition(currentSegmentIndexRef.current);
-        }
-      };
 
-      updateDisplay();
-      intervalRef.current = window.setInterval(updateDisplay, 250);
-
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible') {
-          updateDisplay();
-          if (statusRef.current === 'running') {
-            if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current);
-              timeoutRef.current = null;
+          const config = activeConfigRef.current;
+          if (config && currentSegmentIndex !== undefined) {
+            const completedIndex = currentSegmentIndex - 1;
+            const completedSegment = config.segments[completedIndex];
+            const nextSegment = config.segments[currentSegmentIndex];
+            if (completedSegment && nextSegment) {
+              playTimerSound('segmentEnd');
+              void showNotification(
+                t('timer.notifications.segmentCompleteTitle', {
+                  segment: completedSegment.name,
+                }),
+                t('timer.notifications.segmentCompleteBody', { segment: nextSegment.name }),
+              );
             }
-            scheduleSegmentTransition(currentSegmentIndexRef.current);
           }
+        } else if (payload.type === 'timer_end') {
+          playTimerSound('timerEnd');
+          void showNotification(
+            t('timer.notifications.completeTitle'),
+            t('timer.notifications.completeBody'),
+          );
+          dispatch({ type: 'TIMER_END' });
         }
-      };
+      });
+    };
 
-      const handleFocus = () => {
-        if (statusRef.current === 'running') {
-          updateDisplay();
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-          }
-          scheduleSegmentTransition(currentSegmentIndexRef.current);
-        }
-      };
-
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      window.addEventListener('focus', handleFocus);
-
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-        window.removeEventListener('focus', handleFocus);
-      };
-    }
-
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
+    void setupListeners();
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      if (unlistenTick) unlistenTick();
+      if (unlistenTransition) unlistenTransition();
     };
-  }, [state.status, state.startedAt, state.currentSegmentIndex, scheduleSegmentTransition]);
-
-  useEffect(() => {
-    if (state.status === 'running' && state.startedAt !== null && state.activeConfig) {
-      activeConfigRef.current = state.activeConfig;
-      scheduleSegmentTransition(state.currentSegmentIndex);
-    }
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-    };
-  }, [state.status, state.startedAt, state.currentSegmentIndex, state.activeConfig, scheduleSegmentTransition]);
+  }, [playTimerSound, showNotification, t]);
 
   const addConfig = useCallback(
     async (config: Omit<TimerConfig, 'id' | 'createdAt'>) => {
@@ -404,70 +316,46 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-
       const seconds = minutesToSeconds(config.segments[0].minutes);
       const now = Date.now();
-      initialSecondsRef.current = seconds;
-      startedAtRef.current = now;
-      currentSegmentIndexRef.current = 0;
-      activeConfigRef.current = config;
-      baseElapsedRef.current = 0;
-      dispatch({
-        type: 'START_TIMER',
-        payload: { config, initialSeconds: seconds, startedAt: now },
-      });
-      playTimerSound('timerStart');
+
+      invoke('timer_start', { kind: { type: 'segmented', config } })
+        .then(() => {
+          dispatch({
+            type: 'START_TIMER',
+            payload: { config, initialSeconds: seconds, startedAt: now },
+          });
+          playTimerSound('timerStart');
+        })
+        .catch((error) => {
+          console.error('Failed to start timer:', error);
+        });
     },
     [playTimerSound],
   );
 
   const pauseTimer = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    dispatch({ type: 'PAUSE' });
+    if (statusRef.current !== 'running') return;
+    invoke('timer_pause')
+      .then(() => dispatch({ type: 'PAUSE' }))
+      .catch((error) => console.error('Failed to pause timer:', error));
   }, []);
 
   const resumeTimer = useCallback(() => {
-    if (state.status !== 'paused') return;
-    const elapsedMs = (initialSecondsRef.current - state.remainingSeconds) * 1000;
-    startedAtRef.current = Date.now() - elapsedMs;
-    dispatch({ type: 'RESUME' });
-  }, [state.status, state.remainingSeconds]);
+    if (statusRef.current !== 'paused') return;
+    invoke('timer_resume')
+      .then(() => dispatch({ type: 'RESUME' }))
+      .catch((error) => console.error('Failed to resume timer:', error));
+  }, []);
 
   const resetTimer = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    dispatch({ type: 'RESET' });
-    startedAtRef.current = 0;
-    initialSecondsRef.current = 0;
-    currentSegmentIndexRef.current = 0;
-    activeConfigRef.current = null;
-    baseElapsedRef.current = 0;
+    invoke('timer_reset')
+      .then(() => dispatch({ type: 'RESET' }))
+      .catch((error) => console.error('Failed to reset timer:', error));
   }, []);
 
   const jumpToSegment = useCallback(
     (segmentIndex: number) => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-
       const config = activeConfigRef.current;
       if (!config) {
         return;
@@ -478,18 +366,16 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const seconds = minutesToSeconds(segment.minutes);
-      const now = Date.now();
-      initialSecondsRef.current = seconds;
-      startedAtRef.current = now;
-      currentSegmentIndexRef.current = segmentIndex;
-      baseElapsedRef.current = config.segments
-        .slice(0, segmentIndex)
-        .reduce((sum, seg) => sum + minutesToSeconds(seg.minutes), 0);
-      dispatch({
-        type: 'JUMP_TO_SEGMENT',
-        payload: { segmentIndex, seconds, startedAt: now },
-      });
+      invoke('timer_jump_segment', { index: segmentIndex })
+        .then(() => {
+          const seconds = minutesToSeconds(segment.minutes);
+          const now = Date.now();
+          dispatch({
+            type: 'JUMP_TO_SEGMENT',
+            payload: { segmentIndex, seconds, startedAt: now },
+          });
+        })
+        .catch((error) => console.error('Failed to jump segment:', error));
     },
     [],
   );
