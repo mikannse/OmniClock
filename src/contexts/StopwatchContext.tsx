@@ -87,12 +87,20 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
 
   const start = useCallback(() => {
     if (isRunningRef.current) return;
-    invoke('timer_start', { kind: { type: 'stopwatch' } })
-      .then(() => {
-        dispatch({ type: 'START' });
-        playSound('timerStart');
-      })
-      .catch((error) => console.error('Failed to start stopwatch:', error));
+    if (elapsedMsRef.current > 0) {
+      invoke('timer_resume')
+        .then(() => {
+          dispatch({ type: 'START' });
+        })
+        .catch((error) => console.error('Failed to resume stopwatch:', error));
+    } else {
+      invoke('timer_start', { kind: { type: 'stopwatch' } })
+        .then(() => {
+          dispatch({ type: 'START' });
+          playSound('timerStart');
+        })
+        .catch((error) => console.error('Failed to start stopwatch:', error));
+    }
   }, []);
 
   const pause = useCallback(() => {
@@ -116,7 +124,7 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const lap = useCallback(() => {
-    if (!isRunningRef.current) return;
+    if (elapsedMsRef.current === 0) return;
     const currentElapsed = elapsedMsRef.current;
     const currentLastLap = lastLapTimeRef.current;
     const lapTime = currentElapsed - currentLastLap;

@@ -1,4 +1,5 @@
 ﻿import { Flag, Pause, Play, RotateCcw } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -38,9 +39,51 @@ export function StopwatchView() {
   };
 
   const { best, worst } = getBestWorst();
+  const [isPreparing, setIsPreparing] = useState(false);
+  const spacePressedAtRef = useRef<number | null>(null);
+  const stateRef = useRef({ isRunning, elapsedMs });
+  stateRef.current = { isRunning, elapsedMs };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+      e.preventDefault();
+      if (spacePressedAtRef.current !== null) return;
+      spacePressedAtRef.current = Date.now();
+      const { isRunning: running, elapsedMs: elapsed } = stateRef.current;
+      if (!running && elapsed === 0) {
+        setIsPreparing(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+      if (spacePressedAtRef.current === null) return;
+      const duration = Date.now() - spacePressedAtRef.current;
+      spacePressedAtRef.current = null;
+      setIsPreparing(false);
+      const { isRunning: running, elapsedMs: elapsed } = stateRef.current;
+      if (!running && elapsed === 0) {
+        start();
+      } else if (duration < 500) {
+        if (running) {
+          pause();
+        } else {
+          start();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [start, pause]);
 
   return (
-    <div className="flex flex-col items-center gap-8">
+    <div className="flex flex-1 flex-col items-center justify-center gap-8">
       <div className="text-center">
         <div className="font-mono text-5xl font-light tracking-tight tabular-nums text-foreground md:text-7xl">
           {formatTime(elapsedMs)}
@@ -53,13 +96,11 @@ export function StopwatchView() {
           variant="outline"
           size="lg"
           className="h-14 w-14 rounded-full"
-          onClick={elapsedMs > 0 && !isRunning ? reset : lap}
+          onClick={lap}
           disabled={elapsedMs === 0}
         >
-          {elapsedMs > 0 && !isRunning ? <RotateCcw className="h-5 w-5" /> : <Flag className="h-5 w-5" />}
-          <span className="sr-only">
-            {elapsedMs > 0 && !isRunning ? t('stopwatch.reset') : t('stopwatch.lap')}
-          </span>
+          <Flag className="h-5 w-5" />
+          <span className="sr-only">{t('stopwatch.lap')}</span>
         </Button>
 
         <Button
@@ -67,6 +108,7 @@ export function StopwatchView() {
           className={cn(
             'h-20 w-20 rounded-full transition-all duration-300',
             isRunning ? 'bg-accent hover:bg-accent/90' : 'bg-primary hover:bg-primary/90',
+            isPreparing && 'scale-95 ring-4 ring-primary/30',
           )}
           onClick={isRunning ? pause : start}
         >

@@ -29,6 +29,9 @@
     "noConfigs": "タイマー設定はまだありません",
     "remaining": "残り時間",
     "overview": "概要",
+    "segment": "セグメント",
+    "backToTask": "タスクに戻る",
+    "resumeTask": "タスクを再開",
     "notifications": {
       "segmentCompleteTitle": "「{{segment}}」が終了しました",
       "segmentCompleteBody": "次：{{segment}}",
@@ -156,6 +159,7 @@
     "complete": "完了",
     "hourShort": "時間",
     "minuteShort": "分",
-    "minuteShortUpper": "分"
+    "minuteShortUpper": "分",
+    "back": "戻る"
   }
 }

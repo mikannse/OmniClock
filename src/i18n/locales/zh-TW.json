@@ -29,6 +29,9 @@
     "noConfigs": "目前還沒有計時配置",
     "remaining": "剩餘",
     "overview": "總覽",
+    "segment": "分段",
+    "backToTask": "返回任務",
+    "resumeTask": "繼續任務",
     "notifications": {
       "segmentCompleteTitle": "「{{segment}}」時間到",
       "segmentCompleteBody": "下一項：{{segment}}",
@@ -156,6 +159,7 @@
     "complete": "已完成",
     "hourShort": "時",
     "minuteShort": "分",
-    "minuteShortUpper": "分"
+    "minuteShortUpper": "分",
+    "back": "返回"
   }
 }

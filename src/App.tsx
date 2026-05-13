@@ -126,8 +126,8 @@ function AppContent() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-2xl px-6 py-8">{moduleView}</div>
+      <main className="flex flex-1 flex-col overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 py-8">{moduleView}</div>
       </main>
     </div>
   );

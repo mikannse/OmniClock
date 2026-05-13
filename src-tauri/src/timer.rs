@@ -48,6 +48,7 @@ pub enum TimerKind {
         phase: PomodoroPhase,
     },
     Countdown {
+        #[serde(rename = "totalSeconds")]
         total_seconds: u64,
     },
     Stopwatch,
@@ -76,6 +77,14 @@ struct TimerInstance {
     last_reported_remaining: u64,
 }
 
+struct SpawnedGuard(Arc<AtomicBool>);
+
+impl Drop for SpawnedGuard {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
+}
+
 pub struct TimerManager {
     app: AppHandle,
     state: Arc<Mutex<Option<TimerInstance>>>,
@@ -99,6 +108,7 @@ impl TimerManager {
         let state = self.state.clone();
         let spawned = self.spawned.clone();
         tokio::spawn(async move {
+            let _guard = SpawnedGuard(spawned);
             let mut idle_ticks = 0u32;
             loop {
                 let sleep_duration = {
@@ -120,14 +130,14 @@ impl TimerManager {
                                 Duration::from_secs(1)
                             }
                         } else {
-                            Duration::from_secs(1)
+                            Duration::from_millis(200)
                         }
                     } else {
                         idle_ticks += 1;
-                        if idle_ticks >= 600 {
+                        if idle_ticks >= 3000 {
                             break;
                         }
-                        Duration::from_secs(1)
+                        Duration::from_millis(200)
                     }
                 };
 
@@ -162,7 +172,6 @@ impl TimerManager {
                     }
                 }
             }
-            spawned.store(false, Ordering::SeqCst);
         });
     }
 
@@ -275,7 +284,7 @@ impl TimerManager {
                 if *phase == PomodoroPhase::Working {
                     timer.completed_pomodoros += 1;
                     let next_completed = u64::from(timer.completed_pomodoros);
-                    if next_completed.is_multiple_of(settings.long_break_interval) {
+                    if settings.long_break_interval > 0 && next_completed.is_multiple_of(settings.long_break_interval) {
                         *phase = PomodoroPhase::LongBreak;
                         timer.initial_seconds = settings.long_break_minutes.saturating_mul(60);
                     } else {
@@ -372,6 +381,16 @@ impl TimerManager {
             last_reported_remaining: initial_seconds,
         });
 
+        if let Some(timer) = guard.as_ref() {
+            let initial_remaining = match &timer.kind {
+                TimerKind::Stopwatch => 0,
+                _ => timer.initial_seconds,
+            };
+            if let Err(e) = Self::emit_tick(&self.app, timer, initial_remaining) {
+                eprintln!("timer initial tick emit failed: {}", e);
+            }
+        }
+
         Ok(id)
     }
 
@@ -394,6 +413,15 @@ impl TimerManager {
                     timer.total_paused += pause_start.elapsed();
                 }
                 timer.status = TimerStatus::Running;
+                let elapsed = timer
+                    .started_at
+                    .elapsed()
+                    .saturating_sub(timer.total_paused);
+                let elapsed_seconds = elapsed.as_secs();
+                let remaining = timer.initial_seconds.saturating_sub(elapsed_seconds);
+                if let Err(e) = Self::emit_tick(&self.app, timer, remaining) {
+                    eprintln!("timer resume tick emit failed: {}", e);
+                }
             }
         }
         Ok(())

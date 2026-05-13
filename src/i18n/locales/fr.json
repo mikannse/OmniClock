@@ -29,6 +29,9 @@
     "noConfigs": "Aucune configuration pour le moment",
     "remaining": "Restant",
     "overview": "Vue d'ensemble",
+    "segment": "Segment",
+    "backToTask": "Retour à la tâche",
+    "resumeTask": "Reprendre la tâche",
     "notifications": {
       "segmentCompleteTitle": "« {{segment}} » terminé",
       "segmentCompleteBody": "Suivant : {{segment}}",
@@ -156,6 +159,7 @@
     "complete": "Terminé",
     "hourShort": "h",
     "minuteShort": "min",
-    "minuteShortUpper": "MIN"
+    "minuteShortUpper": "MIN",
+    "back": "Retour"
   }
 }

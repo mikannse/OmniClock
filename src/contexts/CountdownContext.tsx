@@ -70,21 +70,8 @@ const CountdownContext = createContext<CountdownContextType | null>(null);
 
 export function CountdownProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(countdownReducer, initialStateExtended);
-  const isRunningRef = useRef<boolean>(false);
-  const isEditingRef = useRef<boolean>(false);
-  const timeLeftRef = useRef<number>(300);
-
-  useEffect(() => {
-    isRunningRef.current = state.isRunning;
-  }, [state.isRunning]);
-
-  useEffect(() => {
-    isEditingRef.current = state.isEditing;
-  }, [state.isEditing]);
-
-  useEffect(() => {
-    timeLeftRef.current = state.timeLeft;
-  }, [state.timeLeft]);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   useEffect(() => {
     let unlistenTick: (() => void) | undefined;
@@ -97,7 +84,6 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
           console.error('Invalid countdown:tick payload', payload);
           return;
         }
-        timeLeftRef.current = payload.timeLeft;
         dispatch({ type: 'TICK', payload: { timeLeft: payload.timeLeft } });
       });
 
@@ -127,11 +113,12 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const start = useCallback(() => {
-    if (isRunningRef.current) return;
-    if (isEditingRef.current && timeLeftRef.current > 0) {
+    if (stateRef.current.isRunning) return;
+    if (stateRef.current.timeLeft <= 0) return;
+    if (stateRef.current.isEditing) {
       dispatch({ type: 'SET_EDITING', payload: false });
     }
-    const seconds = timeLeftRef.current;
+    const seconds = stateRef.current.timeLeft;
     const now = Date.now();
     invoke('timer_start', { kind: { type: 'countdown', totalSeconds: seconds } })
       .then(() => {
@@ -142,7 +129,7 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const pause = useCallback(() => {
-    if (!isRunningRef.current) return;
+    if (!stateRef.current.isRunning) return;
     invoke('timer_pause')
       .then(() => {
         dispatch({ type: 'PAUSE' });
@@ -160,12 +147,12 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const adjustTime = useCallback((amount: number, unit: 'hours' | 'minutes' | 'seconds') => {
-    if (!isEditingRef.current) return;
+    if (!stateRef.current.isEditing) return;
     let seconds = 0;
     if (unit === 'hours') seconds = amount * 3600;
     else if (unit === 'minutes') seconds = amount * 60;
     else seconds = amount;
-    const newTime = Math.max(0, Math.min(86399, timeLeftRef.current + seconds));
+    const newTime = Math.max(0, Math.min(86399, stateRef.current.timeLeft + seconds));
     dispatch({ type: 'SET_TIME_LEFT', payload: newTime });
     dispatch({ type: 'SET_TOTAL_SECONDS', payload: newTime });
   }, []);

@@ -1,6 +1,6 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { ask } from '@tauri-apps/plugin-dialog';
-import { Plus } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { TimerConfigForm } from './TimerConfigForm';
@@ -8,15 +8,25 @@ import { TimerControls } from './TimerControls';
 import { TimerDisplay } from './TimerDisplay';
 import type { TimerConfig } from '../../types';
 import { useTimerContext } from '../../contexts/TimerContext';
-import { minutesToSeconds } from '../../utils/time';
+import { formatTime, minutesToSeconds } from '../../utils/time';
 
-type ViewMode = 'list' | 'create' | 'edit';
+type ViewMode = 'list' | 'create' | 'edit' | 'timer' | 'edit-active';
 
 export function TimerView() {
   const { t } = useTranslation();
-  const { configs, timerState, startTimer, deleteConfig } = useTimerContext();
+  const { configs, timerState, startTimer, deleteConfig, activeConfig } = useTimerContext();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [editingConfig, setEditingConfig] = useState<TimerConfig | null>(null);
+  const prevStatusRef = useRef(timerState.status);
+
+  useEffect(() => {
+    if (prevStatusRef.current === 'idle' && timerState.status !== 'idle') {
+      setViewMode('timer');
+    } else if (prevStatusRef.current !== 'idle' && timerState.status === 'idle') {
+      setViewMode('list');
+    }
+    prevStatusRef.current = timerState.status;
+  }, [timerState.status]);
 
   const handleEditConfig = (config: TimerConfig) => {
     setEditingConfig(config);
@@ -39,9 +49,46 @@ export function TimerView() {
     setEditingConfig(null);
   };
 
-  if (timerState.status !== 'idle') {
+  if (viewMode === 'edit-active' && activeConfig) {
     return (
       <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="h-6 w-px bg-border" />
+          <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
+            {t('common.edit')} {t('timer.title')}
+          </span>
+        </div>
+        <TimerConfigForm
+          editConfig={activeConfig}
+          onSave={() => setViewMode('timer')}
+          onCancel={() => setViewMode('timer')}
+        />
+      </div>
+    );
+  }
+
+  if (viewMode === 'timer' && timerState.status !== 'idle') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            {t('common.back')}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              if (activeConfig) {
+                setEditingConfig(activeConfig);
+                setViewMode('edit-active');
+              }
+            }}
+          >
+            <Pencil className="mr-2 h-4 w-4" />
+            {t('common.edit')}
+          </Button>
+        </div>
         <TimerDisplay />
         <TimerControls />
       </div>
@@ -84,6 +131,22 @@ export function TimerView() {
 
   return (
     <div className="space-y-6">
+      {timerState.status !== 'idle' && activeConfig && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">{activeConfig.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {t('timer.segment')} {timerState.currentSegmentIndex + 1} / {activeConfig.segments.length} · {formatTime(timerState.remainingSeconds)}
+              </p>
+            </div>
+            <Button size="sm" onClick={() => setViewMode('timer')}>
+              {timerState.status === 'running' ? t('timer.backToTask') : t('timer.resumeTask')}
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{t('timer.title')}</h1>

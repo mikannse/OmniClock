@@ -29,6 +29,9 @@
     "noConfigs": "No timer configs yet",
     "remaining": "Remaining",
     "overview": "Overview",
+    "segment": "Segment",
+    "backToTask": "Back to task",
+    "resumeTask": "Resume task",
     "notifications": {
       "segmentCompleteTitle": "{{segment}} finished",
       "segmentCompleteBody": "Next: {{segment}}",
@@ -156,6 +159,7 @@
     "complete": "Complete",
     "hourShort": "h",
     "minuteShort": "m",
-    "minuteShortUpper": "MIN"
+    "minuteShortUpper": "MIN",
+    "back": "Back"
   }
 }
