@@ -1,4 +1,5 @@
 ﻿import { Minus, Pause, Play, Plus, RotateCcw } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -20,6 +21,28 @@ export function CountdownView() {
   const { t } = useTranslation();
   const { state, start, pause, reset, adjustTime, setTotalSeconds, setTimeLeft } = useCountdownContext();
   const { totalSeconds, timeLeft, isRunning, isEditing } = state;
+  const stateRef = useRef({ isRunning, timeLeft });
+  stateRef.current = { isRunning, timeLeft };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'BUTTON' || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
+        return;
+      }
+      e.preventDefault();
+      const { isRunning: running, timeLeft: left } = stateRef.current;
+      if (running) {
+        pause();
+      } else if (left > 0) {
+        start();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [start, pause]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);

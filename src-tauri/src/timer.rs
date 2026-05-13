@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -62,7 +63,6 @@ pub enum TimerStatus {
 }
 
 struct TimerInstance {
-    #[allow(dead_code)]
     id: String,
     kind: TimerKind,
     status: TimerStatus,
@@ -87,7 +87,7 @@ impl Drop for SpawnedGuard {
 
 pub struct TimerManager {
     app: AppHandle,
-    state: Arc<Mutex<Option<TimerInstance>>>,
+    state: Arc<Mutex<HashMap<String, TimerInstance>>>,
     spawned: Arc<AtomicBool>,
 }
 
@@ -95,7 +95,7 @@ impl TimerManager {
     pub fn new(app: AppHandle) -> Self {
         Self {
             app,
-            state: Arc::new(Mutex::new(None)),
+            state: Arc::new(Mutex::new(HashMap::new())),
             spawned: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -113,38 +113,46 @@ impl TimerManager {
             loop {
                 let sleep_duration = {
                     let guard = state.lock().await;
-                    if let Some(timer) = guard.as_ref() {
-                        idle_ticks = 0;
+                    let mut has_running = false;
+                    let mut min_sleep = Duration::from_secs(1);
+                    for timer in guard.values() {
                         if timer.status == TimerStatus::Running {
+                            has_running = true;
                             let elapsed = timer
                                 .started_at
                                 .elapsed()
                                 .saturating_sub(timer.total_paused);
                             let elapsed_seconds = elapsed.as_secs();
                             let remaining = timer.initial_seconds.saturating_sub(elapsed_seconds);
-                            if matches!(timer.kind, TimerKind::Stopwatch) {
+                            let dur = if matches!(timer.kind, TimerKind::Stopwatch) {
                                 Duration::from_millis(100)
                             } else if remaining > 0 && remaining <= 30 {
                                 Duration::from_millis(100)
                             } else {
                                 Duration::from_secs(1)
+                            };
+                            if dur < min_sleep {
+                                min_sleep = dur;
                             }
-                        } else {
-                            Duration::from_millis(200)
                         }
-                    } else {
+                    }
+                    if !has_running {
                         idle_ticks += 1;
                         if idle_ticks >= 3000 {
                             break;
                         }
                         Duration::from_millis(200)
+                    } else {
+                        idle_ticks = 0;
+                        min_sleep
                     }
                 };
 
                 tokio::time::sleep(sleep_duration).await;
 
                 let mut guard = state.lock().await;
-                if let Some(timer) = guard.as_mut() {
+                let mut to_remove: Vec<String> = Vec::new();
+                for (id, timer) in guard.iter_mut() {
                     if timer.status != TimerStatus::Running {
                         continue;
                     }
@@ -162,6 +170,9 @@ impl TimerManager {
                             eprintln!("timer tick emit failed: {}", e);
                         }
                         Self::handle_transition(&app, timer);
+                        if timer.status == TimerStatus::Idle {
+                            to_remove.push(id.clone());
+                        }
                     } else if matches!(timer.kind, TimerKind::Stopwatch)
                         || remaining != timer.last_reported_remaining
                     {
@@ -170,6 +181,9 @@ impl TimerManager {
                             eprintln!("timer tick emit failed: {}", e);
                         }
                     }
+                }
+                for id in to_remove {
+                    guard.remove(&id);
                 }
             }
         });
@@ -186,6 +200,7 @@ impl TimerManager {
                 app.emit(
                     "timer:tick",
                     serde_json::json!({
+                        "timerId": timer.id,
                         "remainingSeconds": remaining,
                         "totalElapsedSeconds": total,
                         "currentSegmentIndex": timer.current_segment_index,
@@ -198,6 +213,7 @@ impl TimerManager {
                 app.emit(
                     "pomodoro:tick",
                     serde_json::json!({
+                        "timerId": timer.id,
                         "remainingSeconds": remaining,
                         "totalElapsedSeconds": total,
                         "phase": phase,
@@ -210,6 +226,7 @@ impl TimerManager {
                 app.emit(
                     "countdown:tick",
                     serde_json::json!({
+                        "timerId": timer.id,
                         "timeLeft": remaining,
                     }),
                 )
@@ -224,6 +241,7 @@ impl TimerManager {
                 if let Err(e) = app.emit(
                     "stopwatch:tick",
                     serde_json::json!({
+                        "timerId": timer.id,
                         "elapsedMs": elapsed_ms,
                     }),
                 ) {
@@ -253,6 +271,7 @@ impl TimerManager {
                     if let Err(e) = app.emit(
                         "timer:transition",
                         serde_json::json!({
+                            "timerId": timer.id,
                             "type": "segment_end",
                             "currentSegmentIndex": timer.current_segment_index,
                             "remainingSeconds": timer.initial_seconds,
@@ -269,6 +288,7 @@ impl TimerManager {
                     if let Err(e) = app.emit(
                         "timer:transition",
                         serde_json::json!({
+                            "timerId": timer.id,
                             "type": "timer_end",
                             "remainingSeconds": 0,
                             "totalElapsedSeconds": timer.base_elapsed_seconds,
@@ -309,6 +329,7 @@ impl TimerManager {
                 if let Err(e) = app.emit(
                     "timer:transition",
                     serde_json::json!({
+                        "timerId": timer.id,
                         "type": "phase_end",
                         "phase": new_phase,
                         "completedPomodoros": timer.completed_pomodoros,
@@ -327,6 +348,7 @@ impl TimerManager {
                 if let Err(e) = app.emit(
                     "timer:transition",
                     serde_json::json!({
+                        "timerId": timer.id,
                         "type": "countdown_end",
                         "remainingSeconds": 0,
                         "totalElapsedSeconds": timer.base_elapsed_seconds,
@@ -341,9 +363,11 @@ impl TimerManager {
         }
     }
 
-    pub async fn start(&self, kind: TimerKind) -> Result<String, String> {
+    pub async fn start(&self, id: String, kind: TimerKind) -> Result<(), String> {
         self.ensure_tick_loop();
         let mut guard = self.state.lock().await;
+        guard.remove(&id);
+
         let initial_seconds = match &kind {
             TimerKind::Segmented { config } => config
                 .segments
@@ -358,15 +382,7 @@ impl TimerManager {
             TimerKind::Stopwatch => 0,
         };
 
-        let id = format!(
-            "timer_{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis()
-        );
-
-        *guard = Some(TimerInstance {
+        let instance = TimerInstance {
             id: id.clone(),
             kind,
             status: TimerStatus::Running,
@@ -379,9 +395,11 @@ impl TimerManager {
             initial_seconds,
             transition_handled: false,
             last_reported_remaining: initial_seconds,
-        });
+        };
 
-        if let Some(timer) = guard.as_ref() {
+        guard.insert(id.clone(), instance);
+
+        if let Some(timer) = guard.get(&id) {
             let initial_remaining = match &timer.kind {
                 TimerKind::Stopwatch => 0,
                 _ => timer.initial_seconds,
@@ -391,12 +409,12 @@ impl TimerManager {
             }
         }
 
-        Ok(id)
+        Ok(())
     }
 
-    pub async fn pause(&self) -> Result<(), String> {
+    pub async fn pause(&self, id: &str) -> Result<(), String> {
         let mut guard = self.state.lock().await;
-        if let Some(timer) = guard.as_mut() {
+        if let Some(timer) = guard.get_mut(id) {
             if timer.status == TimerStatus::Running {
                 timer.status = TimerStatus::Paused;
                 timer.pause_started_at = Some(Instant::now());
@@ -405,9 +423,9 @@ impl TimerManager {
         Ok(())
     }
 
-    pub async fn resume(&self) -> Result<(), String> {
+    pub async fn resume(&self, id: &str) -> Result<(), String> {
         let mut guard = self.state.lock().await;
-        if let Some(timer) = guard.as_mut() {
+        if let Some(timer) = guard.get_mut(id) {
             if timer.status == TimerStatus::Paused {
                 if let Some(pause_start) = timer.pause_started_at.take() {
                     timer.total_paused += pause_start.elapsed();
@@ -427,15 +445,15 @@ impl TimerManager {
         Ok(())
     }
 
-    pub async fn reset(&self) -> Result<(), String> {
+    pub async fn reset(&self, id: &str) -> Result<(), String> {
         let mut guard = self.state.lock().await;
-        *guard = None;
+        guard.remove(id);
         Ok(())
     }
 
-    pub async fn jump_segment(&self, index: usize) -> Result<(), String> {
+    pub async fn jump_segment(&self, id: &str, index: usize) -> Result<(), String> {
         let mut guard = self.state.lock().await;
-        if let Some(timer) = guard.as_mut() {
+        if let Some(timer) = guard.get_mut(id) {
             if timer.status == TimerStatus::Idle {
                 return Err("timer is idle".to_string());
             }
@@ -456,13 +474,16 @@ impl TimerManager {
         Ok(())
     }
 
-    pub async fn skip(&self) -> Result<(), String> {
+    pub async fn skip(&self, id: &str) -> Result<(), String> {
         let mut guard = self.state.lock().await;
-        if let Some(timer) = guard.as_mut() {
+        if let Some(timer) = guard.get_mut(id) {
             if timer.status != TimerStatus::Running {
                 return Err("timer is not running".to_string());
             }
             Self::handle_transition(&self.app, timer);
+            if timer.status == TimerStatus::Idle {
+                guard.remove(id);
+            }
         }
         Ok(())
     }

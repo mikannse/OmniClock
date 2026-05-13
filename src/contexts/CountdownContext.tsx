@@ -66,6 +66,8 @@ function countdownReducer(state: CountdownStateExtended, action: CountdownAction
   }
 }
 
+const COUNTDOWN_ID = 'countdown';
+
 const CountdownContext = createContext<CountdownContextType | null>(null);
 
 export function CountdownProvider({ children }: { children: React.ReactNode }) {
@@ -80,6 +82,7 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
     const setupListeners = async () => {
       unlistenTick = await listen('countdown:tick', (event) => {
         const payload = event.payload as Record<string, unknown>;
+        if (payload.timerId !== COUNTDOWN_ID) return;
         if (typeof payload.timeLeft !== 'number') {
           console.error('Invalid countdown:tick payload', payload);
           return;
@@ -89,6 +92,7 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
 
       unlistenTransition = await listen('timer:transition', (event) => {
         const payload = event.payload as Record<string, unknown>;
+        if (payload.timerId !== COUNTDOWN_ID) return;
         if (payload.type === 'countdown_end') {
           dispatch({ type: 'PAUSE' });
           playSound('timerEnd');
@@ -120,7 +124,7 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
     }
     const seconds = stateRef.current.timeLeft;
     const now = Date.now();
-    invoke('timer_start', { kind: { type: 'countdown', totalSeconds: seconds } })
+    invoke('timer_start', { id: COUNTDOWN_ID, kind: { type: 'countdown', totalSeconds: seconds } })
       .then(() => {
         dispatch({ type: 'START', payload: { startedAt: now } });
         playSound('timerStart');
@@ -130,7 +134,7 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
 
   const pause = useCallback(() => {
     if (!stateRef.current.isRunning) return;
-    invoke('timer_pause')
+    invoke('timer_pause', { id: COUNTDOWN_ID })
       .then(() => {
         dispatch({ type: 'PAUSE' });
         playSound('hover');
@@ -139,7 +143,7 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const reset = useCallback(() => {
-    invoke('timer_reset')
+    invoke('timer_reset', { id: COUNTDOWN_ID })
       .then(() => {
         dispatch({ type: 'RESET' });
       })

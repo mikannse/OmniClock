@@ -51,6 +51,8 @@ function stopwatchReducer(state: StopwatchState, action: StopwatchAction): Stopw
   }
 }
 
+const STOPWATCH_ID = 'stopwatch';
+
 const StopwatchContext = createContext<StopwatchContextType | null>(null);
 
 export function StopwatchProvider({ children }: { children: React.ReactNode }) {
@@ -69,6 +71,7 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
     const setup = async () => {
       unlisten = await listen('stopwatch:tick', (event) => {
         const payload = event.payload as Record<string, unknown>;
+        if (payload.timerId !== STOPWATCH_ID) return;
         if (typeof payload.elapsedMs !== 'number') {
           console.error('Invalid stopwatch:tick payload', payload);
           return;
@@ -88,13 +91,13 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
   const start = useCallback(() => {
     if (isRunningRef.current) return;
     if (elapsedMsRef.current > 0) {
-      invoke('timer_resume')
+      invoke('timer_resume', { id: STOPWATCH_ID })
         .then(() => {
           dispatch({ type: 'START' });
         })
         .catch((error) => console.error('Failed to resume stopwatch:', error));
     } else {
-      invoke('timer_start', { kind: { type: 'stopwatch' } })
+      invoke('timer_start', { id: STOPWATCH_ID, kind: { type: 'stopwatch' } })
         .then(() => {
           dispatch({ type: 'START' });
           playSound('timerStart');
@@ -105,7 +108,7 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
 
   const pause = useCallback(() => {
     if (!isRunningRef.current) return;
-    invoke('timer_pause')
+    invoke('timer_pause', { id: STOPWATCH_ID })
       .then(() => {
         dispatch({ type: 'PAUSE' });
         playSound('hover');
@@ -114,7 +117,7 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const reset = useCallback(() => {
-    invoke('timer_reset')
+    invoke('timer_reset', { id: STOPWATCH_ID })
       .then(() => {
         dispatch({ type: 'RESET' });
         elapsedMsRef.current = 0;

@@ -140,6 +140,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   configsRef.current = state.configs;
   const statusRef = useRef<TimerStatus>('idle');
   const activeConfigRef = useRef<TimerConfig | null>(null);
+  const timerIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     statusRef.current = state.status;
@@ -187,11 +188,13 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     const setupListeners = async () => {
       unlistenTick = await listen('timer:tick', (event) => {
         const payload = event.payload as {
+          timerId: string;
           remainingSeconds: number;
           totalElapsedSeconds: number;
           currentSegmentIndex: number;
           warning: boolean;
         };
+        if (payload.timerId !== timerIdRef.current) return;
         dispatch({
           type: 'TICK',
           payload,
@@ -200,6 +203,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 
       unlistenTransition = await listen('timer:transition', (event) => {
         const payload = event.payload as Record<string, unknown>;
+        if (payload.timerId !== timerIdRef.current) return;
 
         if (payload.type === 'segment_end') {
           const currentSegmentIndex = typeof payload.currentSegmentIndex === 'number'
@@ -318,8 +322,9 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 
       const seconds = minutesToSeconds(config.segments[0].minutes);
       const now = Date.now();
+      timerIdRef.current = config.id;
 
-      invoke('timer_start', { kind: { type: 'segmented', config } })
+      invoke('timer_start', { id: config.id, kind: { type: 'segmented', config } })
         .then(() => {
           dispatch({
             type: 'START_TIMER',
@@ -336,21 +341,30 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 
   const pauseTimer = useCallback(() => {
     if (statusRef.current !== 'running') return;
-    invoke('timer_pause')
+    const id = timerIdRef.current;
+    if (!id) return;
+    invoke('timer_pause', { id })
       .then(() => dispatch({ type: 'PAUSE' }))
       .catch((error) => console.error('Failed to pause timer:', error));
   }, []);
 
   const resumeTimer = useCallback(() => {
     if (statusRef.current !== 'paused') return;
-    invoke('timer_resume')
+    const id = timerIdRef.current;
+    if (!id) return;
+    invoke('timer_resume', { id })
       .then(() => dispatch({ type: 'RESUME' }))
       .catch((error) => console.error('Failed to resume timer:', error));
   }, []);
 
   const resetTimer = useCallback(() => {
-    invoke('timer_reset')
-      .then(() => dispatch({ type: 'RESET' }))
+    const id = timerIdRef.current;
+    if (!id) return;
+    invoke('timer_reset', { id })
+      .then(() => {
+        dispatch({ type: 'RESET' });
+        timerIdRef.current = null;
+      })
       .catch((error) => console.error('Failed to reset timer:', error));
   }, []);
 
@@ -366,7 +380,9 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      invoke('timer_jump_segment', { index: segmentIndex })
+      const id = timerIdRef.current;
+      if (!id) return;
+      invoke('timer_jump_segment', { id, index: segmentIndex })
         .then(() => {
           const seconds = minutesToSeconds(segment.minutes);
           const now = Date.now();

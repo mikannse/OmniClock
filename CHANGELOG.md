@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.6] - 2026-05-13
+
+### Added
+
+- **Independent Timers**: 不同计时器模块（Timer、Pomodoro、Stopwatch、Countdown）现在可以同时独立运行，互不干扰
+- **Countdown Keyboard Controls**: 倒计时模块支持空格键开始/暂停/恢复计时
+
+### Changed
+
+- **Timer Engine**: 重构 Rust 后端 `TimerManager`，从单例改为多实例 `HashMap` 管理，每个模块拥有独立的计时器 ID
+
 ## [0.9.5] - 2026-05-13
 
 ### Fixed

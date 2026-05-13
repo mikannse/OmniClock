@@ -89,37 +89,51 @@ fn relaunch_app(app: AppHandle) {
 #[tauri::command]
 async fn timer_start(
     timer_manager: tauri::State<'_, TimerManager>,
+    id: String,
     kind: TimerKind,
-) -> Result<String, String> {
-    timer_manager.start(kind).await
+) -> Result<(), String> {
+    timer_manager.start(id, kind).await
 }
 
 #[tauri::command]
-async fn timer_pause(timer_manager: tauri::State<'_, TimerManager>) -> Result<(), String> {
-    timer_manager.pause().await
+async fn timer_pause(
+    timer_manager: tauri::State<'_, TimerManager>,
+    id: String,
+) -> Result<(), String> {
+    timer_manager.pause(&id).await
 }
 
 #[tauri::command]
-async fn timer_resume(timer_manager: tauri::State<'_, TimerManager>) -> Result<(), String> {
-    timer_manager.resume().await
+async fn timer_resume(
+    timer_manager: tauri::State<'_, TimerManager>,
+    id: String,
+) -> Result<(), String> {
+    timer_manager.resume(&id).await
 }
 
 #[tauri::command]
-async fn timer_reset(timer_manager: tauri::State<'_, TimerManager>) -> Result<(), String> {
-    timer_manager.reset().await
+async fn timer_reset(
+    timer_manager: tauri::State<'_, TimerManager>,
+    id: String,
+) -> Result<(), String> {
+    timer_manager.reset(&id).await
 }
 
 #[tauri::command]
 async fn timer_jump_segment(
     timer_manager: tauri::State<'_, TimerManager>,
+    id: String,
     index: usize,
 ) -> Result<(), String> {
-    timer_manager.jump_segment(index).await
+    timer_manager.jump_segment(&id, index).await
 }
 
 #[tauri::command]
-async fn timer_skip(timer_manager: tauri::State<'_, TimerManager>) -> Result<(), String> {
-    timer_manager.skip().await
+async fn timer_skip(
+    timer_manager: tauri::State<'_, TimerManager>,
+    id: String,
+) -> Result<(), String> {
+    timer_manager.skip(&id).await
 }
 
 fn setup_tray(app: &AppHandle) -> Result<TrayIcon, tauri::Error> {

@@ -74,6 +74,8 @@ function pomodoroReducer(state: PomodoroStateExtended, action: PomodoroAction): 
   }
 }
 
+const POMODORO_ID = 'pomodoro';
+
 const PomodoroContext = createContext<PomodoroContextType | null>(null);
 
 export function PomodoroProvider({ children }: { children: React.ReactNode }) {
@@ -130,6 +132,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     const setupListeners = async () => {
       unlistenTick = await listen('pomodoro:tick', (event) => {
         const payload = event.payload as Record<string, unknown>;
+        if (payload.timerId !== POMODORO_ID) return;
         if (
           typeof payload.remainingSeconds !== 'number' ||
           typeof payload.totalElapsedSeconds !== 'number' ||
@@ -152,6 +155,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
 
       unlistenTransition = await listen('timer:transition', (event) => {
         const payload = event.payload as Record<string, unknown>;
+        if (payload.timerId !== POMODORO_ID) return;
         if (payload.type !== 'phase_end') {
           return;
         }
@@ -232,6 +236,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     const now = Date.now();
 
     invoke('timer_start', {
+      id: POMODORO_ID,
       kind: { type: 'pomodoro', settings: settingsRef.current, phase: 'working' },
     })
       .then(() => {
@@ -247,6 +252,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     const now = Date.now();
 
     invoke('timer_start', {
+      id: POMODORO_ID,
       kind: { type: 'pomodoro', settings: settingsRef.current, phase: 'shortBreak' },
     })
       .then(() => {
@@ -262,6 +268,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     const now = Date.now();
 
     invoke('timer_start', {
+      id: POMODORO_ID,
       kind: { type: 'pomodoro', settings: settingsRef.current, phase: 'longBreak' },
     })
       .then(() => {
@@ -274,11 +281,11 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
 
   const skip = useCallback(() => {
     if (statusRef.current === 'idle') return;
-    invoke('timer_skip').catch((error) => console.error('Failed to skip phase:', error));
+    invoke('timer_skip', { id: POMODORO_ID }).catch((error) => console.error('Failed to skip phase:', error));
   }, []);
 
   const reset = useCallback(() => {
-    invoke('timer_reset')
+    invoke('timer_reset', { id: POMODORO_ID })
       .then(() => {
         dispatch({ type: 'RESET' });
         statusRef.current = 'idle';
