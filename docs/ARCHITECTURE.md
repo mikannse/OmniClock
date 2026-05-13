@@ -163,70 +163,58 @@ ThemeProvider          # 最外层，独立管理主题
 
 **核心挑战**：浏览器在后台标签页会节流 `setInterval` 至最低约 1Hz，导致基于 tick 的倒计时在后台运行时严重失准。此外，电脑休眠/熄屏会冻结 `setInterval` 和 `setTimeout`。
 
-### 混合计时策略（Hybrid Timing）
+### Rust 原生计时引擎
 
-所有倒计时类计时器（Timer、Pomodoro、Countdown）均采用以下混合模式：
+自 v0.9.1 起，所有计时逻辑已迁移到 Rust 后端（`src-tauri/src/timer.rs`），通过 `tokio::spawn` 运行独立的 tick 循环，彻底摆脱浏览器节流和休眠冻结问题。
 
-#### 1. 显示刷新（Display Tick）
+#### 1. Tick 循环
 
-使用 `setInterval(fn, 100)` 每 100ms 刷新一次显示，但**不依赖 tick 累加**，而是基于 `Date.now() - startedAt` 实时计算：
-
-```typescript
-const updateDisplay = () => {
-  const now = Date.now();
-  const elapsed = Math.floor((now - startedAtRef.current) / 1000);
-  const remaining = Math.max(0, initialSecondsRef.current - elapsed);
-  dispatch({ type: 'TICK', payload: { remainingSeconds: remaining, ... } });
-};
-```
-
-这样即使 `setInterval` 被节流到 1s 一次，显示仍会通过 `Date.now()` 的差值立即追上真实时间，不会累积漂移。
-
-#### 2. 状态转换调度（Transition Timeout）
-
-单独使用 `setTimeout` 调度精确的状态转换（ segment 切换、工作→休息、计时结束）：
-
-```typescript
-const endTime = startedAtRef.current + (seconds * 1000);
-const delay = endTime - Date.now();
-timeoutRef.current = window.setTimeout(() => {
-  // 执行 segment 切换或计时结束
-}, delay);
-```
-
-这样即使显示 tick 被节流，状态转换仍会在正确的时间点发生。
-
-#### 3. 休眠/熄屏恢复（Sleep Resilience）
-
-当电脑休眠后恢复，`setTimeout` 可能丢失或延迟触发。设置了双重保险：
-
-**保险 A —— 显示 tick 兜底**：
-在 `updateDisplay` 中，当 `remaining === 0` 时，立即清除旧的 timeout 并主动调用转换逻辑：
-
-```typescript
-if (remaining === 0 && timeoutRef.current) {
-  clearTimeout(timeoutRef.current);
-  timeoutRef.current = null;
-  scheduleSegmentTransition(state.currentSegmentIndex);
-}
-```
-
-**保险 B —— `visibilitychange` 监听**：
-当应用从后台/休眠恢复变为可见时，强制重新计算当前时间、清除旧 timeout、重新调度转换。由于 `Date.now()` 已经跳过了休眠时间，重新计算的 `delay <= 0` 会立即触发所有 overdue 的转换（包括跳过多个 segment）。
-
-```typescript
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    updateDisplay();
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    scheduleSegmentTransition(currentSegmentIndex);
-  }
+```rust
+tokio::spawn(async move {
+    let _guard = SpawnedGuard(spawned);
+    loop {
+        let sleep_duration = { /* 根据状态计算 200ms 或 1s */ };
+        tokio::time::sleep(sleep_duration).await;
+        // 计算 elapsed / remaining
+        // emit_tick(&app, timer, remaining)
+    }
 });
 ```
 
-### 秒表为什么不需要这些？
+- 运行中（Running）每 **1 秒** emit 一次 `timer:tick`
+- 空闲/暂停（Idle/Paused）每 **200ms** 轮询，保证 start/resume 的响应速度
+- 使用 `Instant::now()` 和 `Duration` 计算，不受系统时间跳变影响
 
-秒表（Stopwatch）没有**预定状态转换**，它只计算 `Date.now() - startTime` 的差值。即使休眠后恢复，差值自然包含休眠时间，秒表会自动追上，无需额外处理。
+#### 2. 状态转换
+
+状态转换（segment 切换、工作→休息、计时结束）直接在 tick 循环中判断：
+
+```rust
+if remaining == 0 && !timer.transition_handled {
+    timer.transition_handled = true;
+    // 处理 segment_end / timer_end / phase 切换
+    // emit timer:transition
+}
+```
+
+转换事件通过 Tauri 事件总线推送到前端，前端仅需监听并更新 UI。
+
+#### 3. 并发安全
+
+- `Arc<Mutex<Option<TimerInstance>>>` 保护共享状态
+- `Arc<AtomicBool>` 的 `spawned` 标志防止重复启动 tick 循环
+- `SpawnedGuard`（`Drop` 实现）确保 tick 循环退出或 panic 时自动重置 `spawned`
+
+#### 4. 前端职责
+
+前端 Context 不再维护 `setInterval`，仅负责：
+- 监听 `timer:tick` 更新显示
+- 监听 `timer:transition` 处理 segment 完成/计时结束
+- 调用 `invoke('timer_start' | 'timer_pause' | 'timer_resume' | ...)` 发送控制命令
+
+### 秒表为什么更简单？
+
+秒表（Stopwatch）没有**预定状态转换**，它只计算 `Instant::now() - started_at` 的差值。Rust 后端每秒 emit `stopwatch:tick` 推送 `elapsedMs`，前端直接显示即可，无需调度逻辑。
 
 ---
 

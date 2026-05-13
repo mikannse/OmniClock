@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.5] - 2026-05-13
+
+### Fixed
+
+- **Timer Engine**: 修复秒表恢复计时从头开始、倒计时无法启动、番茄钟间歇性卡住等问题
+- **Stopwatch UI**: 修复布局未垂直居中的问题
+
+### Added
+
+- **Stopwatch Keyboard Controls**: 按住空格准备计时，松手开始；短按空格暂停/继续
+- **Timer Navigation**: 计时界面支持返回配置列表，列表顶部显示进行中任务横幅并支持回到计时界面
+- **Timer Editing**: 计时运行/暂停时可直接编辑当前配置
+
+## [0.9.1] - 2026-05-09
+
+### Changed
+
+- **Timer Engine**: 将计时核心迁移到 Rust 后端（`tokio::spawn` 手动 tick 循环），解决浏览器后台标签页冻结导致的计时失准问题
+
 ## [0.8.1] - 2025-05-07
 
 ### Added

@@ -92,13 +92,14 @@ docs/<描述>        # 文档更新
 
 ### 2. 修改计时器逻辑时的检查清单
 
-计时器逻辑是整个项目最敏感的部分。修改时必须同时检查：
+计时器逻辑是整个项目最敏感的部分。Rust 后端（`src-tauri/src/timer.rs`）负责核心计时，前端仅负责监听和显示。修改时必须同时检查：
 
-- [ ] `setInterval`（显示刷新）和 `setTimeout`（状态转换）是否同步更新
-- [ ] `startedAtRef` 是否正确重置/恢复
-- [ ] `visibilitychange` 监听器是否清除和重新注册
-- [ ] 暂停/恢复时 `startedAtRef` 是否通过 `Date.now() - elapsedMs` 重新计算
-- [ ] 休眠恢复后是否能正确处理 overdue 转换
+- [ ] Rust tick 循环的 sleep 时长和 idle 退出阈值是否合理
+- [ ] `spawned` 标志和 `SpawnedGuard` 是否正确防止重复启动
+- [ ] `start()` / `resume()` 是否 emit 初始 tick，避免启动延迟
+- [ ] 状态转换（segment_end / timer_end / phase 切换）是否在 `remaining == 0` 时正确触发
+- [ ] 前端 `listen('timer:tick' / 'timer:transition')` 是否正确处理 payload 字段
+- [ ] `TimerKind` 的 serde 序列化/反序列化字段名是否与前端一致（注意 `rename_all` 不作用于 struct variant 字段）
 
 ### 3. 添加持久化数据时的检查清单
 
