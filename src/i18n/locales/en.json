@@ -4,11 +4,21 @@
     "version": "Version"
   },
   "nav": {
+    "dashboard": "Dashboard",
     "timer": "Timer",
     "pomodoro": "Pomodoro",
     "stopwatch": "Stopwatch",
     "countdown": "Countdown",
     "settings": "Settings"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Overview of your focus time",
+    "segmentProgress": "Segment {{current}} / {{total}}",
+    "noActiveTimers": "No active timers. Start a session from the sidebar.",
+    "recentHistory": "Recent timer history",
+    "noHistory": "No completed timer sessions yet.",
+    "pomodoroToday": "Pomodoros today"
   },
   "timer": {
     "title": "Timer",
@@ -32,6 +42,34 @@
     "segment": "Segment",
     "backToTask": "Back to task",
     "resumeTask": "Resume task",
+    "history": "History",
+    "historyTitle": "Timer history",
+    "historySubtitle": "Completed segmented timer sessions",
+    "noHistory": "No timer history yet",
+    "presets": {
+      "title": "Presets",
+      "examSimulation": {
+        "name": "Exam simulation",
+        "description": "Multiple choice, short answer, essay",
+        "multipleChoice": "Multiple choice",
+        "shortAnswer": "Short answer",
+        "essay": "Essay"
+      },
+      "presentationPractice": {
+        "name": "Presentation practice",
+        "description": "Opening, body, Q&A",
+        "opening": "Opening",
+        "body": "Body",
+        "qa": "Q&A"
+      },
+      "writingSprint": {
+        "name": "Writing sprint",
+        "description": "Outline, draft, review",
+        "outline": "Outline",
+        "drafting": "Drafting",
+        "review": "Review"
+      }
+    },
     "notifications": {
       "segmentCompleteTitle": "{{segment}} finished",
       "segmentCompleteBody": "Next: {{segment}}",
@@ -56,6 +94,21 @@
     "cancel": "Cancel",
     "skip": "Skip",
     "reset": "Reset",
+    "presets": {
+      "title": "Presets",
+      "classic": {
+        "name": "Classic",
+        "description": "25 / 5 / 15"
+      },
+      "deepWork": {
+        "name": "Deep work",
+        "description": "50 / 10 / 30"
+      },
+      "micro": {
+        "name": "Micro",
+        "description": "15 / 3 / 10"
+      }
+    },
     "tips": {
       "title": "Pomodoro technique",
       "work": "Focus for {{minutes}} minutes",
@@ -95,13 +148,24 @@
     "minutes": "Minutes",
     "seconds": "Seconds",
     "presetMinutes": "{{count}} min",
-    "presetHours": "{{count}} hour"
+    "presetHours": "{{count}} hour",
+    "notifications": {
+      "completeTitle": "Countdown finished",
+      "completeBody": "Your countdown has reached zero."
+    }
   },
   "settings": {
     "title": "Settings",
     "subtitle": "Customize your clock experience",
     "notifications": "Notifications",
     "notificationsEnabled": "Enable notifications",
+    "notificationMode": "Notification mode",
+    "notificationModes": {
+      "banner": "Banner",
+      "sound": "Sound only",
+      "tray": "Tray toast",
+      "silent": "Silent"
+    },
     "sound": "Sound",
     "soundEnabled": "Enable sound",
     "system": "System",

@@ -11,12 +11,15 @@ export interface TimerConfig {
   createdAt: string;
 }
 
+export type NotificationMode = 'banner' | 'sound' | 'tray' | 'silent';
+
 export interface Settings {
   notificationsEnabled: boolean;
   soundEnabled: boolean;
   theme: 'light' | 'dark' | 'system';
   autostartEnabled: boolean;
   closeToTray: boolean;
+  notificationMode: NotificationMode;
 }
 
 export type TimerStatus = 'idle' | 'running' | 'paused';
@@ -42,7 +45,22 @@ export interface PomodoroState {
   totalElapsedSeconds: number;
 }
 
-export type ModuleType = 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings';
+export type ModuleType = 'dashboard' | 'timer' | 'pomodoro' | 'stopwatch' | 'countdown' | 'settings';
+
+export interface TimerHistorySegment {
+  name: string;
+  plannedMinutes: number;
+  actualSeconds: number;
+}
+
+export interface TimerHistoryEntry {
+  id: string;
+  configName: string;
+  startedAt: string;
+  completedAt: string;
+  totalElapsedSeconds: number;
+  segments: TimerHistorySegment[];
+}
 
 export interface StopwatchLap {
   id: string;

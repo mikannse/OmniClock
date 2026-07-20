@@ -4,10 +4,25 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import type { Settings, TimerConfig, TimerState, TimerStatus } from '../types';
+import type {
+  Settings,
+  TimerConfig,
+  TimerHistoryEntry,
+  TimerHistorySegment,
+  TimerState,
+  TimerStatus,
+} from '../types';
 import { setAutostart } from '../utils/autostart';
-import { playSound } from '../utils/sound';
-import { loadConfigs, loadSettings, saveConfigs, saveSettings } from '../utils/storage';
+import { notify, playAlertSound } from '../utils/notification';
+import {
+  defaultSettings,
+  loadConfigs,
+  loadSettings,
+  loadTimerHistory,
+  saveConfigs,
+  saveSettings,
+  saveTimerHistory,
+} from '../utils/storage';
 import { generateId, minutesToSeconds } from '../utils/time';
 
 interface TimerContextType {
@@ -15,10 +30,12 @@ interface TimerContextType {
   settings: Settings;
   timerState: TimerState;
   activeConfig: TimerConfig | null;
+  history: TimerHistoryEntry[];
   warning: boolean;
   addConfig: (config: Omit<TimerConfig, 'id' | 'createdAt'>) => Promise<void>;
   updateConfig: (id: string, config: Partial<TimerConfig>) => Promise<void>;
   deleteConfig: (id: string) => Promise<void>;
+  deleteHistoryEntry: (id: string) => Promise<void>;
   startTimer: (configId: string) => void;
   pauseTimer: () => void;
   resumeTimer: () => void;
@@ -30,6 +47,9 @@ interface TimerContextType {
 type TimerAction =
   | { type: 'SET_CONFIGS'; payload: TimerConfig[] }
   | { type: 'SET_SETTINGS'; payload: Settings }
+  | { type: 'SET_HISTORY'; payload: TimerHistoryEntry[] }
+  | { type: 'ADD_HISTORY'; payload: TimerHistoryEntry }
+  | { type: 'DELETE_HISTORY'; payload: string }
   | { type: 'START_TIMER'; payload: { config: TimerConfig; initialSeconds: number; startedAt: number } }
   | { type: 'TICK'; payload: { remainingSeconds: number; totalElapsedSeconds: number; currentSegmentIndex: number; warning: boolean } }
   | { type: 'NEXT_SEGMENT'; payload: { nextIndex: number; seconds: number; startedAt: number } }
@@ -43,22 +63,16 @@ type TimerContextState = TimerState & {
   configs: TimerConfig[];
   settings: Settings;
   activeConfig: TimerConfig | null;
+  history: TimerHistoryEntry[];
   warning: boolean;
   startedAt: number | null;
 };
 
-const initialSettings: Settings = {
-  notificationsEnabled: true,
-  soundEnabled: true,
-  theme: 'system',
-  autostartEnabled: false,
-  closeToTray: false,
-};
-
 const initialState: TimerContextState = {
   configs: [],
-  settings: initialSettings,
+  settings: defaultSettings,
   activeConfig: null,
+  history: [],
   status: 'idle',
   currentSegmentIndex: 0,
   remainingSeconds: 0,
@@ -75,6 +89,12 @@ function timerReducer(state: TimerContextState, action: TimerAction): TimerConte
       return { ...state, configs: action.payload };
     case 'SET_SETTINGS':
       return { ...state, settings: action.payload };
+    case 'SET_HISTORY':
+      return { ...state, history: action.payload };
+    case 'ADD_HISTORY':
+      return { ...state, history: [action.payload, ...state.history] };
+    case 'DELETE_HISTORY':
+      return { ...state, history: state.history.filter((entry) => entry.id !== action.payload) };
     case 'START_TIMER':
       return {
         ...state,
@@ -141,6 +161,17 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const statusRef = useRef<TimerStatus>('idle');
   const activeConfigRef = useRef<TimerConfig | null>(null);
   const timerIdRef = useRef<string | null>(null);
+  const startedAtRef = useRef<number | null>(null);
+  const segmentStartTotalElapsedRef = useRef<number>(0);
+  const segmentActualsRef = useRef<TimerHistorySegment[]>([]);
+  const settingsRef = useRef<Settings>(state.settings);
+  settingsRef.current = state.settings;
+  const historyRef = useRef<TimerHistoryEntry[]>(state.history);
+  historyRef.current = state.history;
+  const totalElapsedRef = useRef<number>(state.totalElapsedSeconds);
+  totalElapsedRef.current = state.totalElapsedSeconds;
+  const tRef = useRef(t);
+  tRef.current = t;
 
   useEffect(() => {
     statusRef.current = state.status;
@@ -151,35 +182,34 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   }, [state.activeConfig]);
 
   useEffect(() => {
+    startedAtRef.current = state.startedAt;
+  }, [state.startedAt]);
+
+  useEffect(() => {
+    totalElapsedRef.current = state.totalElapsedSeconds;
+  }, [state.totalElapsedSeconds]);
+
+  useEffect(() => {
+    historyRef.current = state.history;
+  }, [state.history]);
+
+  useEffect(() => {
     void loadConfigs().then((configs) => dispatch({ type: 'SET_CONFIGS', payload: configs }));
     void loadSettings().then((settings) => {
       dispatch({ type: 'SET_SETTINGS', payload: settings });
       void setAutostart(settings.autostartEnabled).catch(console.error);
       void invoke('set_close_to_tray', { value: settings.closeToTray }).catch(console.error);
     });
+    void loadTimerHistory().then((history) => dispatch({ type: 'SET_HISTORY', payload: history }));
   }, []);
 
-  const playTimerSound = useCallback(
-    (type: 'segmentEnd' | 'timerEnd' | 'timerStart') => {
-      void playSound(type, state.settings.soundEnabled);
-    },
-    [state.settings.soundEnabled],
-  );
-
-  const showNotification = useCallback(
-    async (title: string, body: string) => {
-      if (!state.settings.notificationsEnabled) {
-        return;
-      }
-
-      try {
-        await invoke('send_notification', { title, body });
-      } catch (error) {
-        console.error('Failed to show notification:', error);
-      }
-    },
-    [state.settings.notificationsEnabled],
-  );
+  const persistHistory = useCallback(async (history: TimerHistoryEntry[]) => {
+    try {
+      await saveTimerHistory(history);
+    } catch {
+      toast.error(tRef.current('common.saveFailed'));
+    }
+  }, []);
 
   useEffect(() => {
     let unlistenTick: (() => void) | undefined;
@@ -229,25 +259,79 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
           }
 
           const config = activeConfigRef.current;
-          if (config && currentSegmentIndex !== undefined) {
+          if (config && currentSegmentIndex !== undefined && totalElapsedSeconds !== undefined) {
             const completedIndex = currentSegmentIndex - 1;
             const completedSegment = config.segments[completedIndex];
             const nextSegment = config.segments[currentSegmentIndex];
-            if (completedSegment && nextSegment) {
-              playTimerSound('segmentEnd');
-              void showNotification(
-                t('timer.notifications.segmentCompleteTitle', {
-                  segment: completedSegment.name,
-                }),
-                t('timer.notifications.segmentCompleteBody', { segment: nextSegment.name }),
+
+            if (completedSegment) {
+              const actualSeconds = Math.max(
+                0,
+                Math.floor(totalElapsedSeconds - segmentStartTotalElapsedRef.current),
+              );
+              segmentActualsRef.current.push({
+                name: completedSegment.name,
+                plannedMinutes: completedSegment.minutes,
+                actualSeconds,
+              });
+            }
+
+            segmentStartTotalElapsedRef.current = totalElapsedSeconds;
+
+            if (nextSegment) {
+              void notify(
+                tRef.current('timer.notifications.segmentCompleteTitle', { segment: completedSegment?.name ?? '' }),
+                tRef.current('timer.notifications.segmentCompleteBody', { segment: nextSegment.name }),
+                settingsRef.current.notificationMode,
+                'segmentEnd',
+                settingsRef.current.soundEnabled,
+                settingsRef.current.notificationsEnabled,
               );
             }
           }
         } else if (payload.type === 'timer_end') {
-          playTimerSound('timerEnd');
-          void showNotification(
-            t('timer.notifications.completeTitle'),
-            t('timer.notifications.completeBody'),
+          const config = activeConfigRef.current;
+          const completedAt = new Date().toISOString();
+          const totalElapsedSeconds = typeof payload.totalElapsedSeconds === 'number'
+            ? payload.totalElapsedSeconds
+            : totalElapsedRef.current;
+
+          if (config) {
+            const lastIndex = config.segments.length - 1;
+            const lastSegment = config.segments[lastIndex];
+            if (lastSegment) {
+              const actualSeconds = Math.max(
+                0,
+                Math.floor(totalElapsedSeconds - segmentStartTotalElapsedRef.current),
+              );
+              segmentActualsRef.current.push({
+                name: lastSegment.name,
+                plannedMinutes: lastSegment.minutes,
+                actualSeconds,
+              });
+            }
+
+            const startedAt = startedAtRef.current ?? Date.now();
+            const entry: TimerHistoryEntry = {
+              id: generateId(),
+              configName: config.name,
+              startedAt: new Date(startedAt).toISOString(),
+              completedAt,
+              totalElapsedSeconds,
+              segments: segmentActualsRef.current,
+            };
+            const newHistory = [entry, ...historyRef.current];
+            dispatch({ type: 'ADD_HISTORY', payload: entry });
+            void persistHistory(newHistory);
+          }
+
+          void notify(
+            tRef.current('timer.notifications.completeTitle'),
+            tRef.current('timer.notifications.completeBody'),
+            settingsRef.current.notificationMode,
+            'timerEnd',
+            settingsRef.current.soundEnabled,
+            settingsRef.current.notificationsEnabled,
           );
           dispatch({ type: 'TIMER_END' });
         }
@@ -260,7 +344,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       if (unlistenTick) unlistenTick();
       if (unlistenTransition) unlistenTransition();
     };
-  }, [playTimerSound, showNotification, t]);
+  }, [persistHistory]);
 
   const addConfig = useCallback(
     async (config: Omit<TimerConfig, 'id' | 'createdAt'>) => {
@@ -312,6 +396,19 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     [t],
   );
 
+  const deleteHistoryEntry = useCallback(
+    async (id: string) => {
+      const newHistory = state.history.filter((entry) => entry.id !== id);
+      try {
+        await saveTimerHistory(newHistory);
+        dispatch({ type: 'DELETE_HISTORY', payload: id });
+      } catch {
+        toast.error(t('common.saveFailed'));
+      }
+    },
+    [state.history, t],
+  );
+
   const startTimer = useCallback(
     (configId: string) => {
       if (statusRef.current === 'running') return;
@@ -323,6 +420,8 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       const seconds = minutesToSeconds(config.segments[0].minutes);
       const now = Date.now();
       timerIdRef.current = config.id;
+      segmentActualsRef.current = [];
+      segmentStartTotalElapsedRef.current = 0;
 
       invoke('timer_start', { id: config.id, kind: { type: 'segmented', config } })
         .then(() => {
@@ -330,13 +429,13 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
             type: 'START_TIMER',
             payload: { config, initialSeconds: seconds, startedAt: now },
           });
-          playTimerSound('timerStart');
+          void playAlertSound('timerStart', settingsRef.current.soundEnabled);
         })
         .catch((error) => {
           console.error('Failed to start timer:', error);
         });
     },
-    [playTimerSound],
+    [],
   );
 
   const pauseTimer = useCallback(() => {
@@ -371,14 +470,10 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const jumpToSegment = useCallback(
     (segmentIndex: number) => {
       const config = activeConfigRef.current;
-      if (!config) {
-        return;
-      }
+      if (!config) return;
 
       const segment = config.segments[segmentIndex];
-      if (!segment) {
-        return;
-      }
+      if (!segment) return;
 
       const id = timerIdRef.current;
       if (!id) return;
@@ -386,6 +481,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         .then(() => {
           const seconds = minutesToSeconds(segment.minutes);
           const now = Date.now();
+          segmentStartTotalElapsedRef.current = totalElapsedRef.current;
           dispatch({
             type: 'JUMP_TO_SEGMENT',
             payload: { segmentIndex, seconds, startedAt: now },
@@ -442,10 +538,12 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         totalElapsedSeconds: state.totalElapsedSeconds,
       },
       activeConfig: state.activeConfig,
+      history: state.history,
       warning: state.warning,
       addConfig,
       updateConfig,
       deleteConfig,
+      deleteHistoryEntry,
       startTimer,
       pauseTimer,
       resumeTimer,
@@ -461,10 +559,12 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       state.remainingSeconds,
       state.totalElapsedSeconds,
       state.activeConfig,
+      state.history,
       state.warning,
       addConfig,
       updateConfig,
       deleteConfig,
+      deleteHistoryEntry,
       startTimer,
       pauseTimer,
       resumeTimer,

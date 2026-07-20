@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { usePomodoroContext } from '../../contexts/PomodoroContext';
+import { pomodoroPresets } from './presets';
 import { formatTime } from '../../utils/time';
 
 type ViewMode = 'timer' | 'settings';
@@ -98,6 +99,27 @@ export function PomodoroView() {
         </div>
 
         <div className="space-y-6 rounded-lg border border-border p-6">
+          <div className="space-y-3">
+            <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              {t('pomodoro.presets.title')}
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {pomodoroPresets.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => setLocalSettings(preset.settings)}
+                  className="rounded-lg border border-border p-3 text-left transition-colors hover:bg-accent"
+                >
+                  <div className="text-sm font-medium">{t(preset.nameKey)}</div>
+                  <div className="text-xs text-muted-foreground">{t(preset.descriptionKey)}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label>{t('pomodoro.workDuration')}</Label>
@@ -258,13 +280,13 @@ export function PomodoroView() {
               <SkipForward className="mr-2 h-4 w-4" />
               {t('pomodoro.skip')}
             </Button>
-            <Button onClick={startWork} variant="outline" size="lg">
+            <Button onClick={startWork} variant="outline" size="lg" disabled={isRunning}>
               {t('pomodoro.working')}
             </Button>
-            <Button onClick={startShortBreak} variant="outline" size="lg">
+            <Button onClick={startShortBreak} variant="outline" size="lg" disabled={isRunning}>
               {t('pomodoro.shortBreak')}
             </Button>
-            <Button onClick={startLongBreak} variant="outline" size="lg">
+            <Button onClick={startLongBreak} variant="outline" size="lg" disabled={isRunning}>
               {t('pomodoro.longBreak')}
             </Button>
             <Button onClick={reset} variant="destructive" size="lg">

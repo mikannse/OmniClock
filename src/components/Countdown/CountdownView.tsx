@@ -3,7 +3,11 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useTimerContext } from '../../contexts/TimerContext';
+import { notify } from '../../utils/notification';
+import { playSound } from '../../utils/sound';
 import { useCountdownContext } from '../../contexts/CountdownContext';
+import { formatTime } from '../../utils/time';
 
 const PRESETS = [60, 300, 600, 900, 1800, 3600];
 const CIRCLE_RADIUS = 45;
@@ -19,10 +23,31 @@ function getTimeParts(totalSeconds: number) {
 
 export function CountdownView() {
   const { t } = useTranslation();
+  const { settings } = useTimerContext();
   const { state, start, pause, reset, adjustTime, setTotalSeconds, setTimeLeft } = useCountdownContext();
   const { totalSeconds, timeLeft, isRunning, isEditing } = state;
   const stateRef = useRef({ isRunning, timeLeft });
   stateRef.current = { isRunning, timeLeft };
+  const notifiedRef = useRef(false);
+
+  const isComplete = timeLeft === 0 && !isEditing;
+
+  useEffect(() => {
+    if (isComplete && !notifiedRef.current) {
+      notifiedRef.current = true;
+      void notify(
+        t('countdown.notifications.completeTitle'),
+        t('countdown.notifications.completeBody'),
+        settings.notificationMode,
+        'timerEnd',
+        settings.soundEnabled,
+        settings.notificationsEnabled,
+      );
+    }
+    if (!isComplete && !isRunning && timeLeft === totalSeconds) {
+      notifiedRef.current = false;
+    }
+  }, [isComplete, isRunning, settings, t, timeLeft, totalSeconds]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -44,20 +69,6 @@ export function CountdownView() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [start, pause]);
 
-  const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-
-    if (hours > 0) {
-      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs
-        .toString()
-        .padStart(2, '0')}`;
-    }
-
-    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
   const applyTime = (nextSeconds: number) => {
     const clamped = Math.max(0, Math.min(86399, nextSeconds));
     setTimeLeft(clamped);
@@ -67,10 +78,16 @@ export function CountdownView() {
   const handleStartStop = () => {
     if (isRunning) {
       pause();
+      if (settings.soundEnabled) {
+        void playSound('hover');
+      }
       return;
     }
 
     start();
+    if (settings.soundEnabled) {
+      void playSound('timerStart');
+    }
   };
 
   const setPreset = (value: number) => {
@@ -82,7 +99,6 @@ export function CountdownView() {
   };
 
   const progress = totalSeconds > 0 ? ((totalSeconds - timeLeft) / totalSeconds) * 100 : 0;
-  const isComplete = timeLeft === 0 && !isEditing;
   const timeParts = getTimeParts(timeLeft);
 
   const getStatusText = () => {

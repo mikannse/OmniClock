@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { PomodoroSettings, PomodoroState } from '../types';
 import { useTimerContext } from './TimerContext';
-import { playSound } from '../utils/sound';
+import { notify, playAlertSound } from '../utils/notification';
 import { loadPomodoroSettings, savePomodoroSettings } from '../utils/storage';
 
 type PomodoroStatus = 'idle' | 'working' | 'shortBreak' | 'longBreak';
@@ -84,8 +84,13 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<PomodoroSettings>(defaultSettings);
   const [state, dispatch] = useReducer(pomodoroReducer, initialStateExtended);
   const statusRef = useRef<PomodoroStatus>('idle');
+  const lastPhaseRef = useRef<PomodoroStatus>('idle');
   const completedRef = useRef(0);
   const settingsRef = useRef(settings);
+  const appSettingsRef = useRef(appSettings);
+  appSettingsRef.current = appSettings;
+  const tRef = useRef(t);
+  tRef.current = t;
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -102,28 +107,6 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void loadPomodoroSettings().then(setSettings).catch(console.error);
   }, []);
-
-  const playPomodoroSound = useCallback(
-    (type: 'timerStart' | 'timerEnd') => {
-      void playSound(type, appSettings.soundEnabled);
-    },
-    [appSettings.soundEnabled],
-  );
-
-  const showNotification = useCallback(
-    async (title: string, body: string) => {
-      if (!appSettings.notificationsEnabled) {
-        return;
-      }
-
-      try {
-        await invoke('send_notification', { title, body });
-      } catch (error) {
-        console.error('Failed to show notification:', error);
-      }
-    },
-    [appSettings.notificationsEnabled],
-  );
 
   useEffect(() => {
     let unlistenTick: (() => void) | undefined;
@@ -160,50 +143,72 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        if (
+        const previousPhase = ['working', 'shortBreak', 'longBreak'].includes(payload.previousPhase as string)
+          ? (payload.previousPhase as PomodoroStatus)
+          : lastPhaseRef.current;
+
+        const isValidPayload =
           typeof payload.remainingSeconds === 'number' &&
           typeof payload.totalElapsedSeconds === 'number' &&
           typeof payload.completedPomodoros === 'number' &&
-          ['working', 'shortBreak', 'longBreak'].includes(payload.phase as string)
-        ) {
+          ['working', 'shortBreak', 'longBreak'].includes(payload.phase as string);
+
+        if (isValidPayload) {
           dispatch({
             type: 'TICK',
             payload: {
-              remainingSeconds: payload.remainingSeconds,
-              totalElapsedSeconds: payload.totalElapsedSeconds,
+              remainingSeconds: payload.remainingSeconds as number,
+              totalElapsedSeconds: payload.totalElapsedSeconds as number,
               phase: payload.phase as PomodoroStatus,
-              completedPomodoros: payload.completedPomodoros,
+              completedPomodoros: payload.completedPomodoros as number,
             },
           });
+          statusRef.current = payload.phase as PomodoroStatus;
+          lastPhaseRef.current = payload.phase as PomodoroStatus;
         }
 
-        const previousPhase = statusRef.current;
-        playPomodoroSound('timerEnd');
+        const { notificationMode, soundEnabled } = appSettingsRef.current;
 
         if (previousPhase === 'working') {
           const newPhase = ['shortBreak', 'longBreak'].includes(payload.phase as string)
             ? (payload.phase as PomodoroStatus)
             : 'shortBreak';
           if (newPhase === 'longBreak') {
-            void showNotification(
-              t('pomodoro.notifications.workFinishedTitle'),
-              t('pomodoro.notifications.longBreakBody'),
+            void notify(
+              tRef.current('pomodoro.notifications.workFinishedTitle'),
+              tRef.current('pomodoro.notifications.longBreakBody'),
+              notificationMode,
+              'timerEnd',
+              soundEnabled,
+              appSettingsRef.current.notificationsEnabled,
             );
           } else {
-            void showNotification(
-              t('pomodoro.notifications.workFinishedTitle'),
-              t('pomodoro.notifications.shortBreakBody'),
+            void notify(
+              tRef.current('pomodoro.notifications.workFinishedTitle'),
+              tRef.current('pomodoro.notifications.shortBreakBody'),
+              notificationMode,
+              'timerEnd',
+              soundEnabled,
+              appSettingsRef.current.notificationsEnabled,
             );
           }
         } else if (previousPhase === 'shortBreak') {
-          void showNotification(
-            t('pomodoro.notifications.breakFinishedTitle'),
-            t('pomodoro.notifications.breakFinishedBody'),
+          void notify(
+            tRef.current('pomodoro.notifications.breakFinishedTitle'),
+            tRef.current('pomodoro.notifications.breakFinishedBody'),
+            notificationMode,
+            'timerEnd',
+            soundEnabled,
+            appSettingsRef.current.notificationsEnabled,
           );
         } else if (previousPhase === 'longBreak') {
-          void showNotification(
-            t('pomodoro.notifications.longBreakFinishedTitle'),
-            t('pomodoro.notifications.longBreakFinishedBody'),
+          void notify(
+            tRef.current('pomodoro.notifications.longBreakFinishedTitle'),
+            tRef.current('pomodoro.notifications.longBreakFinishedBody'),
+            notificationMode,
+            'timerEnd',
+            soundEnabled,
+            appSettingsRef.current.notificationsEnabled,
           );
         }
       });
@@ -215,7 +220,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
       if (unlistenTick) unlistenTick();
       if (unlistenTransition) unlistenTransition();
     };
-  }, [playPomodoroSound, showNotification, t]);
+  }, []);
 
   const updatePomodoroSettings = useCallback(
     async (newSettings: Partial<PomodoroSettings>) => {
@@ -242,12 +247,14 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
       .then(() => {
         dispatch({ type: 'START', payload: { status: 'working', seconds, startedAt: now } });
         statusRef.current = 'working';
-        playPomodoroSound('timerStart');
+        lastPhaseRef.current = 'working';
+        void playAlertSound('timerStart', appSettingsRef.current.soundEnabled);
       })
       .catch((error) => console.error('Failed to start pomodoro:', error));
-  }, [playPomodoroSound]);
+  }, []);
 
   const startShortBreak = useCallback(() => {
+    if (statusRef.current !== 'idle') return;
     const seconds = settingsRef.current.shortBreakMinutes * 60;
     const now = Date.now();
 
@@ -258,12 +265,14 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
       .then(() => {
         dispatch({ type: 'START', payload: { status: 'shortBreak', seconds, startedAt: now } });
         statusRef.current = 'shortBreak';
-        playPomodoroSound('timerStart');
+        lastPhaseRef.current = 'shortBreak';
+        void playAlertSound('timerStart', appSettingsRef.current.soundEnabled);
       })
       .catch((error) => console.error('Failed to start short break:', error));
-  }, [playPomodoroSound]);
+  }, []);
 
   const startLongBreak = useCallback(() => {
+    if (statusRef.current !== 'idle') return;
     const seconds = settingsRef.current.longBreakMinutes * 60;
     const now = Date.now();
 
@@ -274,10 +283,11 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
       .then(() => {
         dispatch({ type: 'START', payload: { status: 'longBreak', seconds, startedAt: now } });
         statusRef.current = 'longBreak';
-        playPomodoroSound('timerStart');
+        lastPhaseRef.current = 'longBreak';
+        void playAlertSound('timerStart', appSettingsRef.current.soundEnabled);
       })
       .catch((error) => console.error('Failed to start long break:', error));
-  }, [playPomodoroSound]);
+  }, []);
 
   const skip = useCallback(() => {
     if (statusRef.current === 'idle') return;
@@ -289,6 +299,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
       .then(() => {
         dispatch({ type: 'RESET' });
         statusRef.current = 'idle';
+        lastPhaseRef.current = 'idle';
       })
       .catch((error) => console.error('Failed to reset pomodoro:', error));
   }, []);

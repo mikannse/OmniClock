@@ -4,11 +4,21 @@
     "version": "Version"
   },
   "nav": {
+    "dashboard": "Tableau de bord",
     "timer": "Minuteur",
     "pomodoro": "Pomodoro",
     "stopwatch": "Chronomètre",
     "countdown": "Compte à rebours",
     "settings": "Paramètres"
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "subtitle": "Vue d'ensemble de votre temps de concentration",
+    "segmentProgress": "Segment {{current}} / {{total}}",
+    "noActiveTimers": "Aucun minuteur actif. Lancez une session depuis la barre latérale.",
+    "recentHistory": "Historique récent",
+    "noHistory": "Aucune session terminée pour le moment.",
+    "pomodoroToday": "Pomodoros aujourd'hui"
   },
   "timer": {
     "title": "Minuteur",
@@ -32,6 +42,34 @@
     "segment": "Segment",
     "backToTask": "Retour à la tâche",
     "resumeTask": "Reprendre la tâche",
+    "history": "Historique",
+    "historyTitle": "Historique du minuteur",
+    "historySubtitle": "Sessions de minuteur segmentées terminées",
+    "noHistory": "Aucun historique pour le moment",
+    "presets": {
+      "title": "Préréglages",
+      "examSimulation": {
+        "name": "Simulation d'examen",
+        "description": "QCM, réponse courte, dissertation",
+        "multipleChoice": "QCM",
+        "shortAnswer": "Réponse courte",
+        "essay": "Dissertation"
+      },
+      "presentationPractice": {
+        "name": "Entraînement de présentation",
+        "description": "Introduction, développement, questions-réponses",
+        "opening": "Introduction",
+        "body": "Développement",
+        "qa": "Questions-réponses"
+      },
+      "writingSprint": {
+        "name": "Sprint d'écriture",
+        "description": "Plan, rédaction, relecture",
+        "outline": "Plan",
+        "drafting": "Rédaction",
+        "review": "Relecture"
+      }
+    },
     "notifications": {
       "segmentCompleteTitle": "« {{segment}} » terminé",
       "segmentCompleteBody": "Suivant : {{segment}}",
@@ -56,6 +94,21 @@
     "cancel": "Annuler",
     "skip": "Passer",
     "reset": "Réinitialiser",
+    "presets": {
+      "title": "Préréglages",
+      "classic": {
+        "name": "Classique",
+        "description": "25 / 5 / 15"
+      },
+      "deepWork": {
+        "name": "Travail profond",
+        "description": "50 / 10 / 30"
+      },
+      "micro": {
+        "name": "Micro",
+        "description": "15 / 3 / 10"
+      }
+    },
     "tips": {
       "title": "Méthode Pomodoro",
       "work": "Concentrez-vous pendant {{minutes}} minutes",
@@ -95,13 +148,24 @@
     "minutes": "Minutes",
     "seconds": "Secondes",
     "presetMinutes": "{{count}} min",
-    "presetHours": "{{count}} h"
+    "presetHours": "{{count}} h",
+    "notifications": {
+      "completeTitle": "Compte à rebours terminé",
+      "completeBody": "Votre compte à rebours est arrivé à zéro."
+    }
   },
   "settings": {
     "title": "Paramètres",
     "subtitle": "Personnalisez votre expérience",
     "notifications": "Notifications",
     "notificationsEnabled": "Activer les notifications",
+    "notificationMode": "Mode de notification",
+    "notificationModes": {
+      "banner": "Bannière",
+      "sound": "Son seul",
+      "tray": "Zone de notification",
+      "silent": "Silencieux"
+    },
     "sound": "Son",
     "soundEnabled": "Activer le son",
     "system": "Système",

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration, SystemTime};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 
@@ -66,9 +66,9 @@ struct TimerInstance {
     id: String,
     kind: TimerKind,
     status: TimerStatus,
-    started_at: Instant,
+    started_at: SystemTime,
     total_paused: Duration,
-    pause_started_at: Option<Instant>,
+    pause_started_at: Option<SystemTime>,
     current_segment_index: usize,
     base_elapsed_seconds: u64,
     completed_pomodoros: u32,
@@ -118,9 +118,9 @@ impl TimerManager {
                     for timer in guard.values() {
                         if timer.status == TimerStatus::Running {
                             has_running = true;
-                            let elapsed = timer
-                                .started_at
-                                .elapsed()
+                            let elapsed = SystemTime::now()
+                                .duration_since(timer.started_at)
+                                .unwrap_or(Duration::ZERO)
                                 .saturating_sub(timer.total_paused);
                             let elapsed_seconds = elapsed.as_secs();
                             let remaining = timer.initial_seconds.saturating_sub(elapsed_seconds);
@@ -157,9 +157,9 @@ impl TimerManager {
                         continue;
                     }
 
-                    let elapsed = timer
-                        .started_at
-                        .elapsed()
+                    let elapsed = SystemTime::now()
+                        .duration_since(timer.started_at)
+                        .unwrap_or(Duration::ZERO)
                         .saturating_sub(timer.total_paused);
                     let elapsed_seconds = elapsed.as_secs();
                     let remaining = timer.initial_seconds.saturating_sub(elapsed_seconds);
@@ -232,9 +232,9 @@ impl TimerManager {
                 )
             }
             TimerKind::Stopwatch => {
-                let paused_elapsed = timer
-                    .started_at
-                    .elapsed()
+                let paused_elapsed = SystemTime::now()
+                    .duration_since(timer.started_at)
+                    .unwrap_or(Duration::ZERO)
                     .saturating_sub(timer.total_paused);
                 let elapsed_ms = timer.base_elapsed_seconds.saturating_mul(1000)
                     + u64::try_from(paused_elapsed.as_millis()).unwrap_or(u64::MAX);
@@ -260,7 +260,7 @@ impl TimerManager {
                     timer.current_segment_index += 1;
                     let next_segment = &config.segments[timer.current_segment_index];
                     timer.initial_seconds = next_segment.minutes.saturating_mul(60);
-                    timer.started_at = Instant::now();
+                    timer.started_at = SystemTime::now();
                     timer.total_paused = Duration::ZERO;
                     timer.pause_started_at = None;
                     timer.transition_handled = false;
@@ -301,6 +301,8 @@ impl TimerManager {
             TimerKind::Pomodoro { settings, phase } => {
                 timer.base_elapsed_seconds = timer.base_elapsed_seconds.saturating_add(timer.initial_seconds);
 
+                let previous_phase = phase.clone();
+
                 if *phase == PomodoroPhase::Working {
                     timer.completed_pomodoros += 1;
                     let next_completed = u64::from(timer.completed_pomodoros);
@@ -316,7 +318,7 @@ impl TimerManager {
                     timer.initial_seconds = settings.work_minutes.saturating_mul(60);
                 }
 
-                timer.started_at = Instant::now();
+                timer.started_at = SystemTime::now();
                 timer.total_paused = Duration::ZERO;
                 timer.pause_started_at = None;
                 timer.transition_handled = false;
@@ -332,6 +334,7 @@ impl TimerManager {
                         "timerId": timer.id,
                         "type": "phase_end",
                         "phase": new_phase,
+                        "previousPhase": previous_phase,
                         "completedPomodoros": timer.completed_pomodoros,
                         "remainingSeconds": timer.initial_seconds,
                         "totalElapsedSeconds": timer.base_elapsed_seconds,
@@ -386,7 +389,7 @@ impl TimerManager {
             id: id.clone(),
             kind,
             status: TimerStatus::Running,
-            started_at: Instant::now(),
+            started_at: SystemTime::now(),
             total_paused: Duration::ZERO,
             pause_started_at: None,
             current_segment_index: 0,
@@ -417,7 +420,7 @@ impl TimerManager {
         if let Some(timer) = guard.get_mut(id) {
             if timer.status == TimerStatus::Running {
                 timer.status = TimerStatus::Paused;
-                timer.pause_started_at = Some(Instant::now());
+                timer.pause_started_at = Some(SystemTime::now());
             }
         }
         Ok(())
@@ -428,12 +431,14 @@ impl TimerManager {
         if let Some(timer) = guard.get_mut(id) {
             if timer.status == TimerStatus::Paused {
                 if let Some(pause_start) = timer.pause_started_at.take() {
-                    timer.total_paused += pause_start.elapsed();
+                    timer.total_paused += SystemTime::now()
+                        .duration_since(pause_start)
+                        .unwrap_or(Duration::ZERO);
                 }
                 timer.status = TimerStatus::Running;
-                let elapsed = timer
-                    .started_at
-                    .elapsed()
+                let elapsed = SystemTime::now()
+                    .duration_since(timer.started_at)
+                    .unwrap_or(Duration::ZERO)
                     .saturating_sub(timer.total_paused);
                 let elapsed_seconds = elapsed.as_secs();
                 let remaining = timer.initial_seconds.saturating_sub(elapsed_seconds);
@@ -459,13 +464,28 @@ impl TimerManager {
             }
             if let TimerKind::Segmented { config } = &timer.kind {
                 if index < config.segments.len() {
+                    let now = SystemTime::now();
+                    let total_paused = if let Some(pause_start) = timer.pause_started_at {
+                        timer.total_paused
+                            + now
+                                .duration_since(pause_start)
+                                .unwrap_or(Duration::ZERO)
+                    } else {
+                        timer.total_paused
+                    };
+                    let elapsed = now
+                        .duration_since(timer.started_at)
+                        .unwrap_or(Duration::ZERO)
+                        .saturating_sub(total_paused);
+
                     timer.current_segment_index = index;
                     timer.initial_seconds = config.segments[index].minutes.saturating_mul(60);
-                    timer.started_at = Instant::now();
+                    timer.started_at = now;
                     timer.total_paused = Duration::ZERO;
                     timer.pause_started_at = None;
-                    timer.base_elapsed_seconds =
-                        config.segments[..index].iter().map(|s| s.minutes.saturating_mul(60)).sum();
+                    timer.base_elapsed_seconds = timer
+                        .base_elapsed_seconds
+                        .saturating_add(elapsed.as_secs());
                     timer.transition_handled = false;
                     timer.last_reported_remaining = timer.initial_seconds;
                 }

@@ -3,7 +3,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { StopwatchLap } from '../types';
 import { generateId } from '../utils/time';
+import { playAlertSound } from '../utils/notification';
 import { playSound } from '../utils/sound';
+import { useTimerContext } from './TimerContext';
 
 interface StopwatchState {
   isRunning: boolean;
@@ -56,10 +58,13 @@ const STOPWATCH_ID = 'stopwatch';
 const StopwatchContext = createContext<StopwatchContextType | null>(null);
 
 export function StopwatchProvider({ children }: { children: React.ReactNode }) {
+  const { settings } = useTimerContext();
   const [state, dispatch] = useReducer(stopwatchReducer, initialState);
   const elapsedMsRef = useRef<number>(0);
   const lastLapTimeRef = useRef<number>(0);
   const isRunningRef = useRef<boolean>(false);
+  const soundEnabledRef = useRef<boolean>(settings.soundEnabled);
+  soundEnabledRef.current = settings.soundEnabled;
 
   useEffect(() => {
     isRunningRef.current = state.isRunning;
@@ -100,7 +105,7 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
       invoke('timer_start', { id: STOPWATCH_ID, kind: { type: 'stopwatch' } })
         .then(() => {
           dispatch({ type: 'START' });
-          playSound('timerStart');
+          void playAlertSound('timerStart', soundEnabledRef.current);
         })
         .catch((error) => console.error('Failed to start stopwatch:', error));
     }
@@ -111,7 +116,7 @@ export function StopwatchProvider({ children }: { children: React.ReactNode }) {
     invoke('timer_pause', { id: STOPWATCH_ID })
       .then(() => {
         dispatch({ type: 'PAUSE' });
-        playSound('hover');
+        void playSound('hover', soundEnabledRef.current);
       })
       .catch((error) => console.error('Failed to pause stopwatch:', error));
   }, []);

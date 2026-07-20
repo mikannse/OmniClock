@@ -4,11 +4,21 @@
     "version": "Version"
   },
   "nav": {
+    "dashboard": "Dashboard",
     "timer": "Timer",
     "pomodoro": "Pomodoro",
     "stopwatch": "Stoppuhr",
     "countdown": "Countdown",
     "settings": "Einstellungen"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Übersicht deiner Fokuszeit",
+    "segmentProgress": "Segment {{current}} / {{total}}",
+    "noActiveTimers": "Keine aktiven Timer. Starte eine Sitzung aus der Seitenleiste.",
+    "recentHistory": "Kürzlich abgeschlossene Timer",
+    "noHistory": "Noch keine abgeschlossenen Timer-Sitzungen.",
+    "pomodoroToday": "Pomodoros heute"
   },
   "timer": {
     "title": "Timer",
@@ -32,6 +42,34 @@
     "segment": "Segment",
     "backToTask": "Zurück zur Aufgabe",
     "resumeTask": "Aufgabe fortsetzen",
+    "history": "Verlauf",
+    "historyTitle": "Timer-Verlauf",
+    "historySubtitle": "Abgeschlossene segmentierte Timer-Sitzungen",
+    "noHistory": "Noch kein Timer-Verlauf",
+    "presets": {
+      "title": "Vorlagen",
+      "examSimulation": {
+        "name": "Prüfungssimulation",
+        "description": "Multiple Choice, Kurzantwort, Aufsatz",
+        "multipleChoice": "Multiple Choice",
+        "shortAnswer": "Kurzantwort",
+        "essay": "Aufsatz"
+      },
+      "presentationPractice": {
+        "name": "Präsentationsübung",
+        "description": "Einleitung, Hauptteil, Fragen",
+        "opening": "Einleitung",
+        "body": "Hauptteil",
+        "qa": "Fragen"
+      },
+      "writingSprint": {
+        "name": "Schreib-Sprint",
+        "description": "Gliederung, Entwurf, Überarbeitung",
+        "outline": "Gliederung",
+        "drafting": "Entwurf",
+        "review": "Überarbeitung"
+      }
+    },
     "notifications": {
       "segmentCompleteTitle": "„{{segment}}“ beendet",
       "segmentCompleteBody": "Als Nächstes: {{segment}}",
@@ -56,6 +94,21 @@
     "cancel": "Abbrechen",
     "skip": "Überspringen",
     "reset": "Zurücksetzen",
+    "presets": {
+      "title": "Vorlagen",
+      "classic": {
+        "name": "Klassisch",
+        "description": "25 / 5 / 15"
+      },
+      "deepWork": {
+        "name": "Tiefenarbeit",
+        "description": "50 / 10 / 30"
+      },
+      "micro": {
+        "name": "Mikro",
+        "description": "15 / 3 / 10"
+      }
+    },
     "tips": {
       "title": "Pomodoro-Technik",
       "work": "{{minutes}} Minuten fokussiert arbeiten",
@@ -95,13 +148,24 @@
     "minutes": "Minuten",
     "seconds": "Sekunden",
     "presetMinutes": "{{count}} Min",
-    "presetHours": "{{count}} Std"
+    "presetHours": "{{count}} Std",
+    "notifications": {
+      "completeTitle": "Countdown beendet",
+      "completeBody": "Dein Countdown ist abgelaufen."
+    }
   },
   "settings": {
     "title": "Einstellungen",
     "subtitle": "Passe dein Uhrenerlebnis an",
     "notifications": "Benachrichtigungen",
     "notificationsEnabled": "Benachrichtigungen aktivieren",
+    "notificationMode": "Benachrichtigungsmodus",
+    "notificationModes": {
+      "banner": "Banner",
+      "sound": "Nur Ton",
+      "tray": "Tray-Benachrichtigung",
+      "silent": "Stumm"
+    },
     "sound": "Ton",
     "soundEnabled": "Ton aktivieren",
     "system": "System",

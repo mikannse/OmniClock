@@ -1,20 +1,22 @@
 ﻿import { useEffect, useRef, useState } from 'react';
 import { ask } from '@tauri-apps/plugin-dialog';
-import { ArrowLeft, Pencil, Plus } from 'lucide-react';
+import { ArrowLeft, History, Pencil, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { TimerConfigForm } from './TimerConfigForm';
 import { TimerControls } from './TimerControls';
 import { TimerDisplay } from './TimerDisplay';
+import { TimerHistoryView } from './TimerHistoryView';
 import type { TimerConfig } from '../../types';
 import { useTimerContext } from '../../contexts/TimerContext';
+import { timerPresets, buildTimerConfigFromPreset } from './presets';
 import { formatTime, minutesToSeconds } from '../../utils/time';
 
-type ViewMode = 'list' | 'create' | 'edit' | 'timer' | 'edit-active';
+type ViewMode = 'list' | 'create' | 'edit' | 'timer' | 'edit-active' | 'history';
 
 export function TimerView() {
   const { t } = useTranslation();
-  const { configs, timerState, startTimer, deleteConfig, activeConfig } = useTimerContext();
+  const { configs, timerState, startTimer, deleteConfig, activeConfig, addConfig } = useTimerContext();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [editingConfig, setEditingConfig] = useState<TimerConfig | null>(null);
   const prevStatusRef = useRef(timerState.status);
@@ -65,6 +67,10 @@ export function TimerView() {
         />
       </div>
     );
+  }
+
+  if (viewMode === 'history') {
+    return <TimerHistoryView onBack={() => setViewMode('list')} />;
   }
 
   if (viewMode === 'timer' && timerState.status !== 'idle') {
@@ -158,6 +164,29 @@ export function TimerView() {
           <Plus className="mr-2 h-4 w-4" />
           {t('timer.createConfig')}
         </Button>
+        <Button variant="outline" size="sm" onClick={() => setViewMode('history')}>
+          <History className="mr-2 h-4 w-4" />
+          {t('timer.history')}
+        </Button>
+      </div>
+
+      <div className="space-y-3 rounded-lg border border-border p-4">
+        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          {t('timer.presets.title')}
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {timerPresets.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => void addConfig(buildTimerConfigFromPreset(preset, t))}
+              className="rounded-lg border border-border p-3 text-left transition-colors hover:bg-accent"
+            >
+              <div className="text-sm font-medium">{t(preset.nameKey)}</div>
+              <div className="text-xs text-muted-foreground">{t(preset.descriptionKey)}</div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {configs.length === 0 ? (

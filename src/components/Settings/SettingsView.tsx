@@ -39,6 +39,26 @@ export function SettingsView() {
               onCheckedChange={(checked) => updateSettings({ notificationsEnabled: checked })}
             />
           </div>
+          <div className="space-y-2">
+            <Label className="text-sm text-muted-foreground">{t('settings.notificationMode')}</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(['banner', 'sound', 'tray', 'silent'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => updateSettings({ notificationMode: mode })}
+                  className={cn(
+                    'rounded-lg border px-3 py-2 text-sm transition-colors',
+                    settings.notificationMode === mode
+                      ? 'border-primary bg-secondary text-foreground'
+                      : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                  )}
+                >
+                  {t(`settings.notificationModes.${mode}`)}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 

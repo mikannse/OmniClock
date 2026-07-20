@@ -4,11 +4,21 @@
     "version": "バージョン"
   },
   "nav": {
+    "dashboard": "ダッシュボード",
     "timer": "タイマー",
     "pomodoro": "ポモドーロ",
     "stopwatch": "ストップウォッチ",
     "countdown": "カウントダウン",
     "settings": "設定"
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "subtitle": "集中時間の概要",
+    "segmentProgress": "セグメント {{current}} / {{total}}",
+    "noActiveTimers": "アクティブなタイマーはありません。サイドバーからセッションを開始してください。",
+    "recentHistory": "最近のタイマー履歴",
+    "noHistory": "まだ完了したタイマーセッションはありません",
+    "pomodoroToday": "今日のポモドーロ"
   },
   "timer": {
     "title": "タイマー",
@@ -32,6 +42,34 @@
     "segment": "セグメント",
     "backToTask": "タスクに戻る",
     "resumeTask": "タスクを再開",
+    "history": "履歴",
+    "historyTitle": "タイマー履歴",
+    "historySubtitle": "完了したセグメントタイマーセッション",
+    "noHistory": "まだタイマー履歴はありません",
+    "presets": {
+      "title": "プリセット",
+      "examSimulation": {
+        "name": "試験シミュレーション",
+        "description": "多肢選択、短答、論述",
+        "multipleChoice": "多肢選択",
+        "shortAnswer": "短答",
+        "essay": "論述"
+      },
+      "presentationPractice": {
+        "name": "プレゼン練習",
+        "description": "オープニング、本論、Q&A",
+        "opening": "オープニング",
+        "body": "本論",
+        "qa": "Q&A"
+      },
+      "writingSprint": {
+        "name": "ライティングスプリント",
+        "description": "構成案、執筆、見直し",
+        "outline": "構成案",
+        "drafting": "執筆",
+        "review": "見直し"
+      }
+    },
     "notifications": {
       "segmentCompleteTitle": "「{{segment}}」が終了しました",
       "segmentCompleteBody": "次：{{segment}}",
@@ -56,6 +94,21 @@
     "cancel": "キャンセル",
     "skip": "スキップ",
     "reset": "リセット",
+    "presets": {
+      "title": "プリセット",
+      "classic": {
+        "name": "クラシック",
+        "description": "25 / 5 / 15"
+      },
+      "deepWork": {
+        "name": "ディープワーク",
+        "description": "50 / 10 / 30"
+      },
+      "micro": {
+        "name": "マイクロ",
+        "description": "15 / 3 / 10"
+      }
+    },
     "tips": {
       "title": "ポモドーロ・テクニック",
       "work": "{{minutes}} 分集中する",
@@ -95,13 +148,24 @@
     "minutes": "分",
     "seconds": "秒",
     "presetMinutes": "{{count}} 分",
-    "presetHours": "{{count}} 時間"
+    "presetHours": "{{count}} 時間",
+    "notifications": {
+      "completeTitle": "カウントダウン終了",
+      "completeBody": "カウントダウンがゼロに達しました。"
+    }
   },
   "settings": {
     "title": "設定",
     "subtitle": "時計アプリの体験をカスタマイズ",
     "notifications": "通知",
     "notificationsEnabled": "通知を有効にする",
+    "notificationMode": "通知モード",
+    "notificationModes": {
+      "banner": "バナー",
+      "sound": "サウンドのみ",
+      "tray": "トレイ通知",
+      "silent": "サイレント"
+    },
     "sound": "サウンド",
     "soundEnabled": "サウンドを有効にする",
     "system": "システム",

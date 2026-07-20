@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { playSound } from '../utils/sound';
 
 interface CountdownState {
   totalSeconds: number;
@@ -95,7 +94,6 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
         if (payload.timerId !== COUNTDOWN_ID) return;
         if (payload.type === 'countdown_end') {
           dispatch({ type: 'PAUSE' });
-          playSound('timerEnd');
         }
       });
     };
@@ -119,15 +117,14 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
   const start = useCallback(() => {
     if (stateRef.current.isRunning) return;
     if (stateRef.current.timeLeft <= 0) return;
-    if (stateRef.current.isEditing) {
-      dispatch({ type: 'SET_EDITING', payload: false });
-    }
     const seconds = stateRef.current.timeLeft;
     const now = Date.now();
     invoke('timer_start', { id: COUNTDOWN_ID, kind: { type: 'countdown', totalSeconds: seconds } })
       .then(() => {
+        if (stateRef.current.isEditing) {
+          dispatch({ type: 'SET_EDITING', payload: false });
+        }
         dispatch({ type: 'START', payload: { startedAt: now } });
-        playSound('timerStart');
       })
       .catch((error) => console.error('Failed to start countdown:', error));
   }, []);
@@ -137,7 +134,6 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
     invoke('timer_pause', { id: COUNTDOWN_ID })
       .then(() => {
         dispatch({ type: 'PAUSE' });
-        playSound('hover');
       })
       .catch((error) => console.error('Failed to pause countdown:', error));
   }, []);

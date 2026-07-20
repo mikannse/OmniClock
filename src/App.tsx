@@ -1,9 +1,10 @@
 ﻿import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { Clock, Coffee, Hourglass, Settings, Timer } from 'lucide-react';
+import { Clock, Coffee, Hourglass, LayoutDashboard, Settings, Timer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CountdownView } from './components/Countdown/CountdownView';
+import { DashboardView } from './components/Dashboard/DashboardView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PomodoroView } from './components/Pomodoro/PomodoroView';
 import { SettingsView } from './components/Settings/SettingsView';
@@ -20,6 +21,7 @@ import { VERSION } from './utils/version';
 import './index.css';
 
 const NAV_ITEMS: { id: ModuleType; icon: ReactNode }[] = [
+  { id: 'dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
   { id: 'timer', icon: <Clock className="h-5 w-5" /> },
   { id: 'pomodoro', icon: <Coffee className="h-5 w-5" /> },
   { id: 'stopwatch', icon: <Timer className="h-5 w-5" /> },
@@ -30,13 +32,15 @@ const NAV_ITEMS: { id: ModuleType; icon: ReactNode }[] = [
 function TrayEventHandler() {
   const { startWork } = usePomodoroContext();
   const unlistenRef = useRef<(() => void) | null>(null);
+  const startWorkRef = useRef(startWork);
+  startWorkRef.current = startWork;
 
   useEffect(() => {
     let mounted = true;
 
     const setup = async () => {
       const unlisten = await listen('tray-start-work', () => {
-        startWork();
+        startWorkRef.current();
       });
       if (mounted) {
         unlistenRef.current = unlisten;
@@ -52,14 +56,14 @@ function TrayEventHandler() {
       unlistenRef.current?.();
       unlistenRef.current = null;
     };
-  }, [startWork]);
+  }, []);
 
   return null;
 }
 
 function AppContent() {
   const { t, i18n } = useTranslation();
-  const [activeModule, setActiveModule] = useState<ModuleType>('timer');
+  const [activeModule, setActiveModule] = useState<ModuleType>('dashboard');
 
   useEffect(() => {
     void invoke('update_tray_labels', {
@@ -76,6 +80,8 @@ function AppContent() {
 
   const moduleView = useMemo(() => {
     switch (activeModule) {
+      case 'dashboard':
+        return <DashboardView />;
       case 'timer':
         return <TimerView />;
       case 'pomodoro':

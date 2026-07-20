@@ -4,11 +4,21 @@
     "version": "版本"
   },
   "nav": {
+    "dashboard": "仪表盘",
     "timer": "计时器",
     "pomodoro": "番茄钟",
     "stopwatch": "秒表",
     "countdown": "倒计时",
     "settings": "设置"
+  },
+  "dashboard": {
+    "title": "仪表盘",
+    "subtitle": "专注时间概览",
+    "segmentProgress": "分段 {{current}} / {{total}}",
+    "noActiveTimers": "当前没有运行中的计时器。从侧边栏开始一个会话。",
+    "recentHistory": "最近的计时历史",
+    "noHistory": "还没有已完成的计时会话。",
+    "pomodoroToday": "今日番茄钟"
   },
   "timer": {
     "title": "计时器",
@@ -32,6 +42,34 @@
     "segment": "分段",
     "backToTask": "返回任务",
     "resumeTask": "继续任务",
+    "history": "历史",
+    "historyTitle": "计时历史",
+    "historySubtitle": "已完成的分段计时会话",
+    "noHistory": "还没有计时历史",
+    "presets": {
+      "title": "预设",
+      "examSimulation": {
+        "name": "模拟考试",
+        "description": "选择题、简答题、作文",
+        "multipleChoice": "选择题",
+        "shortAnswer": "简答题",
+        "essay": "作文"
+      },
+      "presentationPractice": {
+        "name": "演讲练习",
+        "description": "开场、正文、问答",
+        "opening": "开场",
+        "body": "正文",
+        "qa": "问答"
+      },
+      "writingSprint": {
+        "name": "写作冲刺",
+        "description": "大纲、起草、审阅",
+        "outline": "大纲",
+        "drafting": "起草",
+        "review": "审阅"
+      }
+    },
     "notifications": {
       "segmentCompleteTitle": "“{{segment}}”时间到",
       "segmentCompleteBody": "下一项：{{segment}}",
@@ -56,6 +94,21 @@
     "cancel": "取消",
     "skip": "跳过",
     "reset": "重置",
+    "presets": {
+      "title": "预设",
+      "classic": {
+        "name": "经典",
+        "description": "25 / 5 / 15"
+      },
+      "deepWork": {
+        "name": "深度工作",
+        "description": "50 / 10 / 30"
+      },
+      "micro": {
+        "name": "微番茄",
+        "description": "15 / 3 / 10"
+      }
+    },
     "tips": {
       "title": "番茄工作法",
       "work": "专注工作 {{minutes}} 分钟",
@@ -95,13 +148,24 @@
     "minutes": "分钟",
     "seconds": "秒",
     "presetMinutes": "{{count}} 分钟",
-    "presetHours": "{{count}} 小时"
+    "presetHours": "{{count}} 小时",
+    "notifications": {
+      "completeTitle": "倒计时结束",
+      "completeBody": "倒计时已归零。"
+    }
   },
   "settings": {
     "title": "设置",
     "subtitle": "自定义你的时钟体验",
     "notifications": "通知",
     "notificationsEnabled": "启用通知",
+    "notificationMode": "通知模式",
+    "notificationModes": {
+      "banner": "横幅",
+      "sound": "仅声音",
+      "tray": "托盘通知",
+      "silent": "静音"
+    },
     "sound": "声音",
     "soundEnabled": "启用声音",
     "system": "跟随系统",
